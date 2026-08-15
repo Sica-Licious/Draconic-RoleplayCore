@@ -19,6 +19,7 @@
 #include "DB2Stores.h"
 #include "Player.h"
 #include "World.h"
+#include <cmath>
 
 int32 const SocketColorToGemTypeMask[31] =
 {
@@ -193,7 +194,7 @@ uint32 ItemTemplate::GetArmor(uint32 itemLevel) const
                 break;
         }
 
-        return uint32(armorQuality->Qualitymod[quality] * total * locationModifier + 0.5f);
+        return uint32(std::round(armorQuality->Qualitymod[quality] * total * locationModifier));
     }
 
     // shields
@@ -201,7 +202,7 @@ uint32 ItemTemplate::GetArmor(uint32 itemLevel) const
     if (!shield)
         return 0;
 
-    return uint32(shield->Quality[quality] + 0.5f);
+    return uint32(std::round(shield->Quality[quality]));
 }
 
 float ItemTemplate::GetDPS(uint32 itemLevel) const
@@ -296,4 +297,50 @@ bool ItemTemplate::IsUsableByLootSpecialization(Player const* player, bool alway
 std::size_t ItemTemplate::CalculateItemSpecBit(ChrSpecializationEntry const* spec)
 {
     return (spec->ClassID - 1) * MAX_SPECIALIZATIONS + spec->OrderIndex;
+}
+
+TransmogOutfitSlotOption ItemTemplate::GetWeaponTransmogOutfitSlotOption() const
+{
+    switch (GetClass())
+    {
+        case ITEM_CLASS_WEAPON:
+            switch (GetSubClass())
+            {
+                case ITEM_SUBCLASS_WEAPON_AXE2:
+                case ITEM_SUBCLASS_WEAPON_MACE2:
+                case ITEM_SUBCLASS_WEAPON_SWORD2:
+                case ITEM_SUBCLASS_WEAPON_STAFF:
+                case ITEM_SUBCLASS_WEAPON_POLEARM:
+                    return TransmogOutfitSlotOption::TwoHandedWeapon;
+                case ITEM_SUBCLASS_WEAPON_BOW:
+                case ITEM_SUBCLASS_WEAPON_GUN:
+                case ITEM_SUBCLASS_WEAPON_CROSSBOW:
+                    return TransmogOutfitSlotOption::RangedWeapon;
+                case ITEM_SUBCLASS_WEAPON_AXE:
+                case ITEM_SUBCLASS_WEAPON_MACE:
+                case ITEM_SUBCLASS_WEAPON_SWORD:
+                case ITEM_SUBCLASS_WEAPON_WARGLAIVES:
+                case ITEM_SUBCLASS_WEAPON_FIST_WEAPON:
+                case ITEM_SUBCLASS_WEAPON_DAGGER:
+                    return TransmogOutfitSlotOption::OneHandedWeapon;
+                default:
+                    break;
+            }
+            break;
+        case ITEM_CLASS_ARMOR:
+            switch (GetInventoryType())
+            {
+                case INVTYPE_SHIELD:
+                    return TransmogOutfitSlotOption::Shield;
+                case INVTYPE_HOLDABLE:
+                    return TransmogOutfitSlotOption::OffHand;
+                default:
+                    break;
+            }
+            break;
+        default:
+            break;
+    }
+
+    return TransmogOutfitSlotOption::None;
 }

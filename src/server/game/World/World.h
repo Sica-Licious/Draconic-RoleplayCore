@@ -171,7 +171,6 @@ enum WorldBoolConfigs : uint32
     CONFIG_QUEST_IGNORE_AUTO_ACCEPT,
     CONFIG_QUEST_IGNORE_AUTO_COMPLETE,
     CONFIG_QUEST_ENABLE_QUEST_TRACKER,
-    CONFIG_WARDEN_ENABLED,
     CONFIG_ENABLE_MMAPS,
     CONFIG_WINTERGRASP_ENABLE,
     CONFIG_TOLBARAD_ENABLE,
@@ -353,6 +352,7 @@ enum WorldIntConfigs : uint32
     CONFIG_ARENA_START_PERSONAL_RATING,
     CONFIG_ARENA_START_MATCHMAKER_RATING,
     CONFIG_MAX_WHO,
+    CONFIG_WHO_LIST_UPDATE_INTERVAL,
     CONFIG_HONOR_AFTER_DUEL,
     CONFIG_PVP_TOKEN_MAP_TYPE,
     CONFIG_PVP_TOKEN_ID,
@@ -384,13 +384,6 @@ enum WorldIntConfigs : uint32
     CONFIG_LFG_OPTIONSMASK,
     CONFIG_MAX_INSTANCES_PER_HOUR,
     CONFIG_XP_BOOST_DAYMASK,
-    CONFIG_WARDEN_CLIENT_RESPONSE_DELAY,
-    CONFIG_WARDEN_CLIENT_CHECK_HOLDOFF,
-    CONFIG_WARDEN_CLIENT_FAIL_ACTION,
-    CONFIG_WARDEN_CLIENT_BAN_DURATION,
-    CONFIG_WARDEN_NUM_INJECT_CHECKS,
-    CONFIG_WARDEN_NUM_LUA_CHECKS,
-    CONFIG_WARDEN_NUM_CLIENT_MOD_CHECKS,
     CONFIG_WINTERGRASP_PLR_MAX,
     CONFIG_WINTERGRASP_PLR_MIN,
     CONFIG_WINTERGRASP_PLR_MIN_LVL,
@@ -452,6 +445,10 @@ enum WorldInt64Configs : uint32
 {
     CONFIG_CHARACTER_CREATING_DISABLED_RACEMASK,
     CONFIG_START_PLAYER_MONEY,
+    CONFIG_START_DEATH_KNIGHT_PLAYER_MONEY,
+    CONFIG_START_DEMON_HUNTER_PLAYER_MONEY,
+    CONFIG_START_EVOKER_PLAYER_MONEY,
+    CONFIG_START_ALLIED_RACE_MONEY,
     INT64_CONFIG_VALUE_COUNT
 };
 
@@ -670,8 +667,6 @@ class TC_GAME_API World
         bool SendAreaIDMessage(uint32 areaID, WorldPacket const* packet, WorldSession* self = nullptr, Optional<Team> team = { });
         void SendGlobalMessage(WorldPacket const* packet, WorldSession* self = nullptr, Optional<Team> team = { });
         void SendGlobalGMMessage(WorldPacket const* packet, WorldSession* self = nullptr, Optional<Team> team = { });
-        bool SendZoneMessage(uint32 zone, WorldPacket const* packet, WorldSession* self = nullptr, Optional<Team> team = { });
-        void SendZoneText(uint32 zone, const char *text, WorldSession* self = nullptr, Optional<Team> team = { });
 
         /// Are we in the middle of a shutdown?
         bool IsShuttingDown() const { return m_ShutdownTimer > 0; }

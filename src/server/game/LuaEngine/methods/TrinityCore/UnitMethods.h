@@ -703,7 +703,7 @@ namespace LuaUnit
         if (type >= CURRENT_MAX_SPELL)
             return luaL_argerror(E->L, 2, "valid CurrentSpellTypes expected");
 
-        E->Push(unit->GetCurrentSpell(type));
+        E->Push(unit->GetCurrentSpell(CurrentSpellTypes(type)));
         return 1;
     }
 
@@ -2000,7 +2000,7 @@ namespace LuaUnit
 
         Position pos(x, y, z);
 
-        unit->GetMotionMaster()->MoveJump(pos, zSpeed, maxHeight, id);
+        unit->GetMotionMaster()->MoveJump(id, pos, zSpeed, {}, maxHeight);
         return 0;
     }
 

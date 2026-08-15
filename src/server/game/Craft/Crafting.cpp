@@ -59,12 +59,12 @@ SpellCastResult Crafting::DoCraft(uint32 craftingDataId)
         {
             for (WorldPackets::Spells::SpellCraftingReagent const& providedReagentForSlot : providedReagentItr->second)
             {
-                if (_player->HasItemCount(providedReagentForSlot.ItemID, providedReagentForSlot.Quantity))
+                if (_player->HasItemCount(providedReagentForSlot.Slot, providedReagentForSlot.Quantity))
                 {
                     reagentCountForSlot += providedReagentForSlot.Quantity;
-                    usedReagentsToDestroy[providedReagentForSlot.ItemID] = providedReagentForSlot.Quantity;
+                    usedReagentsToDestroy[providedReagentForSlot.Slot] = providedReagentForSlot.Quantity;
 
-                    if (CraftingReagentQualityEntry const* reagentQuality = sDB2Manager.GetCraftingReagentQualityByItem(providedReagentForSlot.ItemID))
+                    if (CraftingReagentQualityEntry const* reagentQuality = sDB2Manager.GetCraftingReagentQualityByItem(providedReagentForSlot.Slot))
                         craftingDifficulty += reagentQuality->MaxDifficultyAdjustment;
                 }
             }
@@ -94,7 +94,7 @@ SpellCastResult Crafting::DoCraft(uint32 craftingDataId)
                 for (WorldPackets::Spells::SpellCraftingReagent const& providedReagent : providedReagentItr->second)
                 {
                     bool hasItem = std::count_if(std::cbegin(requiredItems), std::cend(requiredItems), [providedReagent](ItemSparseEntry const* itemSparse) {
-                        return itemSparse->ID == uint32(providedReagent.ItemID);
+                        return itemSparse->ID == uint32(providedReagent.Slot);
                     });
 
                     if (hasItem)
@@ -167,7 +167,7 @@ uint32 Crafting::GetSkillLevelForCraft()
             {
                 for (WorldPackets::Spells::SpellCraftingReagent const& providedReagentForSlot : providedReagentItr->second)
                 {
-                    if (CraftingReagentQualityEntry const* reagentQuality = sDB2Manager.GetCraftingReagentQualityByItem(providedReagentForSlot.ItemID))
+                    if (CraftingReagentQualityEntry const* reagentQuality = sDB2Manager.GetCraftingReagentQualityByItem(providedReagentForSlot.Slot))
                     {
                         float reagentWeight = float(category->MatQualityWeight) * float(providedReagentForSlot.Quantity) / 2.0f * float(reagentQuality->OrderIndex);
                         uint32 addedSkillByReagent = round(maximumReagentBonus * reagentWeight / float(totalReagentWeigth));

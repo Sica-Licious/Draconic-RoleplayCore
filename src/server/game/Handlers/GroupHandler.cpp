@@ -348,10 +348,7 @@ void WorldSession::HandleLeaveGroupOpcode(WorldPackets::Party::LeaveGroup& packe
         return;
 
     if (_player->InBattleground())
-    {
-        SendPartyResult(PARTY_OP_INVITE, "", ERR_INVITE_RESTRICTED);
         return;
-    }
 
     /** error handling **/
     /********************/
@@ -587,18 +584,21 @@ void WorldSession::HandleReadyCheckResponseOpcode(WorldPackets::Party::ReadyChec
 
 void WorldSession::HandleRequestPartyMemberStatsOpcode(WorldPackets::Party::RequestPartyMemberStats& packet)
 {
-    WorldPackets::Party::PartyMemberFullState partyMemberStats;
-
-    Player* player = ObjectAccessor::FindConnectedPlayer(packet.TargetGUID);
-    if (!player)
+    for (ObjectGuid const& target : packet.Targets)
     {
-        partyMemberStats.MemberGuid = packet.TargetGUID;
-        partyMemberStats.MemberStats.Status = MEMBER_STATUS_OFFLINE;
+        WorldPackets::Party::PartyMemberFullState partyMemberStats;
+        Player* player = ObjectAccessor::FindConnectedPlayer(target);
+        if (!player || !GetPlayer()->IsInSameRaidWith(player))
+        {
+            partyMemberStats.MemberGuid = target;
+            partyMemberStats.MemberStats.Status = MEMBER_STATUS_OFFLINE;
+        }
+        else
+        {
+            partyMemberStats.Initialize(player);
+        }
+        SendPacket(partyMemberStats.Write());
     }
-    else
-        partyMemberStats.Initialize(player);
-
-    SendPacket(partyMemberStats.Write());
 }
 
 void WorldSession::HandleRequestRaidInfoOpcode(WorldPackets::Party::RequestRaidInfo& /*packet*/)

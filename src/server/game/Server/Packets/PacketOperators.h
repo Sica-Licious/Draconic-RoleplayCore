@@ -45,9 +45,9 @@ namespace WorldPackets
     {
         T const& Value;
 
-        friend inline ByteBuffer& operator<<(ByteBuffer& data, AsWriter const& opt)
+        friend inline ByteBuffer& operator<<(ByteBuffer& data, AsWriter const& as)
         {
-            data << static_cast<Underlying>(opt.Value);
+            data << static_cast<Underlying>(as.Value);
             return data;
         }
     };
@@ -55,11 +55,11 @@ namespace WorldPackets
     template<AsWritable Underlying, AsWritableFor<Underlying> T>
     struct AsReaderWriter : AsWriter<Underlying, T>
     {
-        friend inline ByteBuffer& operator>>(ByteBuffer& data, AsReaderWriter const& opt)
+        friend inline ByteBuffer& operator>>(ByteBuffer& data, AsReaderWriter const& as)
         {
             Underlying temp;
             data >> temp;
-            const_cast<T&>(opt.Value) = static_cast<T>(temp);
+            const_cast<T&>(as.Value) = static_cast<T>(temp);
             return data;
         }
     };
@@ -199,6 +199,7 @@ namespace WorldPackets
         {
             Underlying temp;
             data >> temp;
+
             const_cast<Container&>(size.Value).resize(temp);
             return data;
         }
@@ -215,9 +216,9 @@ namespace WorldPackets
     {
         Container const& Value;
 
-        friend inline ByteBuffer& operator<<(ByteBuffer& data, BitsSizeWriter const& bits)
+        friend inline ByteBuffer& operator<<(ByteBuffer& data, BitsSizeWriter const& size)
         {
-            data.WriteBits(static_cast<uint32>(bits.Value.size()), BitCount);
+            data.WriteBits(static_cast<uint32>(size.Value.size()), BitCount);
             return data;
         }
     };
@@ -225,9 +226,9 @@ namespace WorldPackets
     template<uint32 BitCount, ContainerReadable<uint32> Container>
     struct BitsSizeReaderWriter : BitsSizeWriter<BitCount, Container>
     {
-        friend inline ByteBuffer& operator>>(ByteBuffer& data, BitsSizeReaderWriter const& bits)
+        friend inline ByteBuffer& operator>>(ByteBuffer& data, BitsSizeReaderWriter const& size)
         {
-            const_cast<Container&>(bits.Value).resize(data.ReadBits(BitCount));
+            const_cast<Container&>(size.Value).resize(data.ReadBits(BitCount));
             return data;
         }
     };
@@ -245,8 +246,7 @@ namespace WorldPackets
     template<typename T>
     concept StringReadable = StringWritable<T>
                           && !std::is_const_v<T>
-                          && !std::same_as<T, std::string_view>
-                          && requires(T& container) { container.resize(uint32()); }
+                          && (requires(T& container) { container.resize(uint32()); } || std::same_as<T, std::string_view>)
                           && requires(ByteBuffer& data, T& string) { string = data.ReadString(uint32(), bool()); };
 
     namespace SizedString
@@ -256,9 +256,9 @@ namespace WorldPackets
         {
             Container const& Value;
 
-            friend inline ByteBuffer& operator<<(ByteBuffer& data, SizeWriter const& bits)
+            friend inline ByteBuffer& operator<<(ByteBuffer& data, SizeWriter const& size)
             {
-                data.WriteBits(static_cast<uint32>(bits.Value.length()), BitCount);
+                data.WriteBits(static_cast<uint32>(size.Value.length()), BitCount);
                 return data;
             }
         };
@@ -266,9 +266,18 @@ namespace WorldPackets
         template<uint32 BitCount, StringReadable Container>
         struct SizeReaderWriter : SizeWriter<BitCount, Container>
         {
-            friend inline ByteBuffer& operator>>(ByteBuffer& data, SizeReaderWriter const& bits)
+            friend inline ByteBuffer& operator>>(ByteBuffer& data, SizeReaderWriter const& size)
             {
-                const_cast<Container&>(bits.Value).resize(data.ReadBits(BitCount));
+                uint32 length = data.ReadBits(BitCount);
+                if (size_t rpos = data.rpos(); length > data.size() - rpos)
+                    data.OnInvalidPosition(rpos, length);
+
+                if constexpr (std::is_same_v<Container, std::string_view>)
+                    // create a temporary string_view pointing at start of ByteBuffer to be able to retrieve the length later
+                    const_cast<std::string_view&>(size.Value) = { reinterpret_cast<char const*>(data.data()), length };
+                else
+                    const_cast<Container&>(size.Value).resize(length);
+
                 return data;
             }
         };
@@ -318,9 +327,9 @@ namespace WorldPackets
         {
             Container const& Value;
 
-            friend inline ByteBuffer& operator<<(ByteBuffer& data, SizeWriter const& bits)
+            friend inline ByteBuffer& operator<<(ByteBuffer& data, SizeWriter const& size)
             {
-                data.WriteBits(static_cast<uint32>(bits.Value.length() + 1), BitCount);
+                data.WriteBits(static_cast<uint32>(size.Value.length() + 1), BitCount);
                 return data;
             }
         };
@@ -328,10 +337,20 @@ namespace WorldPackets
         template<uint32 BitCount, StringReadable Container>
         struct SizeReaderWriter : SizeWriter<BitCount, Container>
         {
-            friend inline ByteBuffer& operator>>(ByteBuffer& data, SizeReaderWriter const& bits)
+            friend inline ByteBuffer& operator>>(ByteBuffer& data, SizeReaderWriter const& size)
             {
                 if (uint32 bytesIncludingNullTerminator = data.ReadBits(BitCount); bytesIncludingNullTerminator > 1)
-                    const_cast<Container&>(bits.Value).resize(bytesIncludingNullTerminator - 1);
+                {
+                    uint32 length = bytesIncludingNullTerminator - 1;
+                    if (size_t rpos = data.rpos(); length > data.size() - rpos)
+                        data.OnInvalidPosition(rpos, bytesIncludingNullTerminator);
+
+                    if constexpr (std::is_same_v<Container, std::string_view>)
+                    // create a temporary string_view pointing at start of ByteBuffer to be able to retrieve the length later
+                        const_cast<std::string_view&>(size.Value) = { reinterpret_cast<char const*>(data.data()), length };
+                    else
+                        const_cast<Container&>(size.Value).resize(length);
+                }
                 return data;
             }
         };
@@ -379,6 +398,102 @@ namespace WorldPackets
 
         template<Strings::Utf8Mode Mode = Strings::ValidUtf8, StringReadable Container>
         inline DataReaderWriter<Container, Mode> Data(Container& value) { return { value }; }
+    }
+
+    namespace Bytes
+    {
+        template<AsWritable Underlying>
+        struct SizeWriter
+        {
+            std::span<uint8> const& Value;
+
+            friend inline ByteBuffer& operator<<(ByteBuffer& data, SizeWriter const& size)
+            {
+                data << static_cast<Underlying>(size.Value.size());
+                return data;
+            }
+        };
+
+        template<AsWritable Underlying>
+        struct SizeReaderWriter : SizeWriter<Underlying>
+        {
+            friend inline ByteBuffer& operator>>(ByteBuffer& data, SizeReaderWriter const& size)
+            {
+                Underlying temp;
+                data >> temp;
+
+                if (size_t rpos = data.rpos(); temp > data.size() - rpos)
+                    data.OnInvalidPosition(rpos, temp);
+
+                // create a temporary span pointing at random position in ByteBuffer to be able to retrieve the length later
+                const_cast<std::span<uint8>&>(size.Value) = { data.data(), temp };
+                return data;
+            }
+        };
+
+        template<AsWritable Underlying>
+        inline SizeWriter<Underlying> Size(std::span<uint8> const& value) { return { value }; }
+
+        template<AsWritable Underlying>
+        inline SizeReaderWriter<Underlying> Size(std::span<uint8>& value) { return { value }; }
+
+        template<uint32 BitCount>
+        struct BitsSizeWriter
+        {
+            std::span<uint8> const& Value;
+
+            friend inline ByteBuffer& operator<<(ByteBuffer& data, BitsSizeWriter const& size)
+            {
+                data.WriteBits(static_cast<uint32>(size.Value.size()), BitCount);
+                return data;
+            }
+        };
+
+        template<uint32 BitCount>
+        struct BitsSizeReaderWriter : BitsSizeWriter<BitCount>
+        {
+            friend inline ByteBuffer& operator>>(ByteBuffer& data, BitsSizeReaderWriter const& size)
+            {
+                uint32 length = data.ReadBits(BitCount);
+                if (size_t rpos = data.rpos(); length > data.size() - rpos)
+                    data.OnInvalidPosition(rpos, length);
+
+                // create a temporary span pointing at start of ByteBuffer to be able to retrieve the length later
+                const_cast<std::span<uint8>&>(size.Value) = { data.data(), length };
+                return data;
+            }
+        };
+
+        template<uint32 BitCount>
+        inline BitsSizeWriter<BitCount> BitsSize(std::span<uint8> const& value) { return { value }; }
+
+        template<uint32 BitCount>
+        inline BitsSizeReaderWriter<BitCount> BitsSize(std::span<uint8>& value) { return { value }; }
+
+        struct DataWriter
+        {
+            std::span<uint8> const& Value;
+
+            friend inline ByteBuffer& operator<<(ByteBuffer& data, DataWriter const& span)
+            {
+                if (!data.empty())
+                    data.append(span.Value.data(), span.Value.size());
+                return data;
+            }
+        };
+
+        struct DataReaderWriter : DataWriter
+        {
+            friend inline ByteBuffer& operator>>(ByteBuffer& data, DataReaderWriter const& string)
+            {
+                const_cast<std::span<uint8>&>(string.Value) = data.ReadBytes(string.Value.size());
+                return data;
+            }
+        };
+
+        inline DataWriter Data(std::span<uint8> const& value) { return { value }; }
+
+        inline DataReaderWriter Data(std::span<uint8>& value) { return { value }; }
     }
 }
 

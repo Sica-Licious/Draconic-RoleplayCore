@@ -17,8 +17,8 @@
 
 // This is where scripts' loading functions should be declared:
 
-//void AddSC_custom_commandscript();
-void AddSC_dragonriding_spell_scripts();
+//void AddSC_PrivateWork();
+void AddSC_advanced_flying_spell_scripts();
 //ROLEPLAY FUNC
 void AddSC_free_share_scripts();
 void AddSC_CustomDisplayHandler();
@@ -26,13 +26,14 @@ void AddSC_CustomDisplayCommands();
 void AddSC_CustomEffectHandler();
 void AddSC_CustomEffectCommands();
 void AddSC_toy_spell_scripts();
+void AddSC_npc_perks_program_vendor();
 
 // The name of this function should match:
 // void Add${NameOfDirectory}Scripts()
 void AddCustomScripts()
 {
-    //AddSC_custom_commandscript();
-    AddSC_dragonriding_spell_scripts();
+    //AddSC_PrivateWork();
+    AddSC_advanced_flying_spell_scripts();
     AddSC_toy_spell_scripts();
     //ROLEPLAY FUNC
     AddSC_free_share_scripts();
@@ -40,4 +41,5 @@ void AddCustomScripts()
     AddSC_CustomDisplayCommands();
     AddSC_CustomEffectHandler();
     AddSC_CustomEffectCommands();
+    AddSC_npc_perks_program_vendor();
 }

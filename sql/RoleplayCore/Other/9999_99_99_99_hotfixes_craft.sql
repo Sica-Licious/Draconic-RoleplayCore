@@ -64,8 +64,10 @@ CREATE TABLE `crafting_reagent_quality` (
 	`ID` INT(10) UNSIGNED NOT NULL,
 	`OrderIndex` INT(10) NOT NULL DEFAULT '0',
 	`ItemID` INT(10) NOT NULL DEFAULT '0',
+	`CurrencyTypesID` INT(10) NOT NULL DEFAULT '0',
 	`MaxDifficultyAdjustment` FLOAT(10) NOT NULL DEFAULT '0',
 	`ReagentEffectPct` FLOAT(10) NOT NULL DEFAULT '0',
+	`Field_12_0_0_64124_006` INT(10) NOT NULL DEFAULT '0',
 	`ModifiedCraftingCategoryID` INT(10) NOT NULL DEFAULT '0',
 	`VerifiedBuild` INT(10) NOT NULL DEFAULT '0',
     PRIMARY KEY (`ID`,`VerifiedBuild`)
@@ -144,12 +146,13 @@ DROP TABLE IF EXISTS `modified_crafting_reagent_slot`;
 CREATE TABLE `modified_crafting_reagent_slot` (
 	`Name` text,
 	`ID` INT(10) UNSIGNED NOT NULL,
-	`Field_9_0_1_33978_001` INT(10) NOT NULL DEFAULT '0',
+	`Flags` INT(10) NOT NULL DEFAULT '0',
 	`PlayerConditionID` INT(10) NOT NULL DEFAULT '0',
 	`ReagentType` INT(10) NOT NULL DEFAULT '0',
-	`Field_10_0_2_46091_005` INT(10) NOT NULL DEFAULT '0',
+	`ReagentSource` INT(10) NOT NULL DEFAULT '0',
 	`Field_11_2_0_61476_006` INT(10) NOT NULL DEFAULT '0',
 	`VerifiedBuild` INT(10) NOT NULL DEFAULT '0',
+	`Field_12_0_0_63534_007` float NOT NULL DEFAULT 0,
     PRIMARY KEY (`ID`,`VerifiedBuild`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

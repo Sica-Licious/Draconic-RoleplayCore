@@ -37,14 +37,14 @@ namespace WorldPackets
 
             WorldPacket const* Write() override;
 
-            int32 MythicPlusDisplaySeasonID = 0;
-            int32 MythicPlusMilestoneSeasonID = 0;
-            int32 PreviousArenaSeason = 0;
-            int32 CurrentArenaSeason = 0;
-            int32 PvpSeasonID = 0;
+            int32 MythicPlusDisplaySeasonID = 34;
+            int32 MythicPlusMilestoneSeasonID = 117;
+            int32 PreviousArenaSeason = 40;
+            int32 CurrentArenaSeason = 41;
+            int32 PvpSeasonID = 39;
             int32 ConquestWeeklyProgressCurrencyID = 0;
-            int32 Unknown1027_1 = 0;
-            bool WeeklyRewardChestsEnabled = false;
+            int32 Unknown1027_1 = 1069;
+            bool WeeklyRewardChestsEnabled = true;
             bool CurrentArenaSeasonUsesTeams = false;
             bool PreviousArenaSeasonUsesTeams = false;
         };
@@ -210,7 +210,7 @@ namespace WorldPackets
             uint32 ShutdownTimer = 0;
             int8 ArenaFaction = 0;
             bool LeftEarly = false;
-            bool Brawl = false;
+            bool Brawl = true;
             uint32 StartTimer = 0;
             uint32 Mapid = 0;
         };
@@ -339,16 +339,16 @@ namespace WorldPackets
 
             WorldPacket const* Write() override;
 
-            bool RatedBattlegrounds = false;
-            bool PugBattlegrounds = false;
-            bool WargameBattlegrounds = false;
-            bool WargameArenas = false;
-            bool RatedArenas = false;
-            bool ArenaSkirmish = false;
-            bool SoloShuffle = false;
-            bool RatedSoloShuffle = false;
-            bool BattlegroundBlitz = false;
-            bool RatedBattlegroundBlitz = false; // solo rbg
+            bool RatedBattlegrounds = true;
+            bool PugBattlegrounds = true;
+            bool WargameBattlegrounds = true;
+            bool WargameArenas = true;
+            bool RatedArenas = true;
+            bool ArenaSkirmish = true;
+            bool SoloShuffle = true;
+            bool RatedSoloShuffle = true;
+            bool BattlegroundBlitz = true;
+            bool RatedBattlegroundBlitz = true; // solo rbg
         };
 
         class RequestBattlefieldStatus final : public ClientPacket
@@ -621,14 +621,14 @@ namespace WorldPackets
         {
             int32 PvpBrawlID = 0;
             int32 AchievementId = 0;
-            bool CanQueue = false;
+            bool CanQueue = true;
         };
 
         struct BrawlInfo
         {
             int32 PvpBrawlID = 0;
             int32 TimeToBrawl = 0;
-            bool IsActive = false;
+            bool IsActive = true;
         };
 
         class RequestScheduledPVPInfoResponse final : public ServerPacket

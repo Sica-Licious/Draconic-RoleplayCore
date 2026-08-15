@@ -522,7 +522,7 @@ bool LootRoll::PlayerVote(Player* player, RollVote vote)
 {
     ObjectGuid const& playerGuid = player->GetGUID();
     RollVoteMap::iterator voterItr = m_rollVoteMap.find(playerGuid);
-    if (voterItr == m_rollVoteMap.end())
+    if (voterItr == m_rollVoteMap.end() || voterItr->second.Vote != RollVote::NotEmitedYet)
         return false;
 
     voterItr->second.Vote = vote;
@@ -875,7 +875,7 @@ bool Loot::FillLoot(uint32 lootId, LootStore const& store, Player* lootOwner, bo
 
     items.reserve(MAX_NR_LOOT_ITEMS);
 
-    tab->Process(*this, store.IsRatesAllowed(), lootMode, 0);    // Processing is done there, callback via Loot::AddItem()
+    tab->Process(*this, store.IsRatesAllowed(), lootMode, 0, lootOwner);
 
     // Setting access rights for group loot case
     Group const* group = lootOwner->GetGroup();
@@ -973,7 +973,7 @@ void Loot::AddItem(LootStoreItem const& item)
     }
 }
 
-bool Loot::AutoStore(Player* player, uint8 bag, uint8 slot, bool broadcast, bool createdByPlayer)
+bool Loot::AutoStore(Player* player, uint8 bag, uint8 slot, bool broadcast, bool pushed, bool createdByPlayer)
 {
     bool allLooted = true;
     for (uint32 i = 0; i < items.size(); ++i)
@@ -1013,7 +1013,7 @@ bool Loot::AutoStore(Player* player, uint8 bag, uint8 slot, bool broadcast, bool
 
                 if (Item* pItem = player->StoreNewItem(dest, lootItem->itemid, true, lootItem->randomBonusListId, GuidSet(), lootItem->context, &lootItem->BonusListIDs))
                 {
-                    player->SendNewItem(pItem, lootItem->count, false, createdByPlayer, broadcast, GetDungeonEncounterId());
+                    player->SendNewItem(pItem, lootItem->count, pushed, createdByPlayer, broadcast, GetDungeonEncounterId());
                     player->ApplyItemLootedSpell(pItem, true);
                 }
                 else

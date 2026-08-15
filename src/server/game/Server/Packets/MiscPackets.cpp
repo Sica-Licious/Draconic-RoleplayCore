@@ -46,6 +46,14 @@ WorldPacket const* BindPointUpdate::Write()
     return &_worldPacket;
 }
 
+WorldPacket const* PlayerBound::Write()
+{
+    _worldPacket << BinderID;
+    _worldPacket << uint32(AreaID);
+
+    return &_worldPacket;
+}
+
 WorldPacket const* InvalidatePlayer::Write()
 {
     _worldPacket << Guid;
@@ -124,6 +132,12 @@ WorldPacket const* SetCurrency::Write()
     return &_worldPacket;
 }
 
+void SetCurrencyFlags::Read()
+{
+    _worldPacket >> CurrencyID;
+    _worldPacket >> As<uint8>(Flags);
+}
+
 void SetSelection::Read()
 {
     _worldPacket >> Selection;
@@ -185,9 +199,10 @@ void TimeSyncResponse::Read()
     _worldPacket >> ClientTime;
 }
 
-WorldPacket const* ServerTimeOffset::Write()
+WorldPacket const* TriggerCinematic::Write()
 {
-    _worldPacket << Time;
+    _worldPacket << uint32(CinematicID);
+    _worldPacket << ConversationGuid;
 
     return &_worldPacket;
 }
@@ -199,10 +214,9 @@ WorldPacket const* TriggerMovie::Write()
     return &_worldPacket;
 }
 
-WorldPacket const* TriggerCinematic::Write()
+WorldPacket const* ServerTimeOffset::Write()
 {
-    _worldPacket << uint32(CinematicID);
-    _worldPacket << ConversationGuid;
+    _worldPacket << Time;
 
     return &_worldPacket;
 }
@@ -224,7 +238,11 @@ void TutorialSetFlag::Read()
 
 WorldPacket const* WorldServerInfo::Write()
 {
-    _worldPacket << uint32(DifficultyID);
+    _worldPacket << int16(DifficultyID);
+    _worldPacket << HouseGUID;
+    _worldPacket << HouseOwnerAccountGUID;
+    _worldPacket << HouseCosmeticOwnerGUID;
+    _worldPacket << NeighborhoodGUID;
     _worldPacket << Bits<1>(IsTournamentRealm);
     _worldPacket << Bits<1>(XRealmPvpAlert);
     _worldPacket << Bits<1>(BlockExitingLoadingScreen);
@@ -258,7 +276,7 @@ void SetRaidDifficulty::Read()
 
 WorldPacket const* DungeonDifficultySet::Write()
 {
-    _worldPacket << int32(DifficultyID);
+    _worldPacket << int16(DifficultyID);
 
     return &_worldPacket;
 }
@@ -266,7 +284,7 @@ WorldPacket const* DungeonDifficultySet::Write()
 WorldPacket const* RaidDifficultySet::Write()
 {
     _worldPacket << int32(Legacy);
-    _worldPacket << int32(DifficultyID);
+    _worldPacket << int16(DifficultyID);
 
     return &_worldPacket;
 }
@@ -349,14 +367,6 @@ WorldPacket const* SetAnimTier::Write()
     _worldPacket << Unit;
     _worldPacket << uint8(Tier);
     _worldPacket.FlushBits();
-
-    return &_worldPacket;
-}
-
-WorldPacket const* PlayerBound::Write()
-{
-    _worldPacket << BinderID;
-    _worldPacket << uint32(AreaID);
 
     return &_worldPacket;
 }
@@ -672,7 +682,7 @@ WorldPacket const* AccountHeirloomUpdate::Write()
     _worldPacket << Bits<1>(IsFullUpdate);
     _worldPacket.FlushBits();
 
-    _worldPacket << int32(ItemCollectionType);
+    _worldPacket << int8(ItemCollectionType);
 
     // both lists have to have the same size
     _worldPacket << Size<uint32>(*Heirlooms);
@@ -877,6 +887,11 @@ WorldPacket const* AccountWarbandSceneUpdate::Write()
     return &_worldPacket;
 }
 
+void WorldPackets::Misc::FactionSelect::Read()
+{
+    _worldPacket >> FactionChoice;
+}
+
 void AccountNotificationAcknowledge::Read()
 {
     _worldPacket >> unk;
@@ -915,11 +930,6 @@ void ShowTradeSkill::Read()
     _worldPacket >> SkillLineID;
 }
 
-void WorldPackets::Misc::FactionSelect::Read()
-{
-    _worldPacket >> FactionChoice;
-}
-
 void WorldPackets::Misc::ActivateSoulbind::Read()
 {
     _worldPacket >> CovenantID;
@@ -930,6 +940,53 @@ WorldPacket const* WorldPackets::Misc::ActivateSoulbindFailed::Write()
     _worldPacket << uint32(CovenantID);
     _worldPacket << uint8(unk);
 
+    return &_worldPacket;
+}
+
+void ChromieTimeSelectExpansion::Read()
+{
+    _worldPacket >> Vendor;
+    _worldPacket >> ExpansionID;
+}
+
+WorldPacket const* TimerunningSeasonEnded::Write()
+{
+    _worldPacket << uint32(SeasonID);
+
+    return &_worldPacket;
+}
+
+WorldPacket const* SetCtrOptions::Write()
+{
+    auto writeBlock = [&](CTROptionsBlock const& block)
+    {
+        _worldPacket << uint32(block.ConditionalFlags.size());
+        _worldPacket << uint8(block.FactionGroup);
+        _worldPacket << uint32(block.ChromieTimeExpansionMask);
+        for (uint32 flag : block.ConditionalFlags)
+            _worldPacket << uint32(flag);
+    };
+
+    writeBlock(Previous);
+    writeBlock(Current);
+
+    return &_worldPacket;
+}
+
+void RequestStoreFrontInfoUpdate::Read()
+{
+    _worldPacket >> StoreFrontID;
+    uint32 currencyCount = _worldPacket.read<uint32>();
+    CurrencyIDs.resize(currencyCount);
+    for (uint32 i = 0; i < currencyCount; ++i)
+        _worldPacket >> CurrencyIDs[i];
+}
+
+WorldPacket const* AccountStoreFrontUpdate::Write()
+{
+    _worldPacket << StoreFrontID;
+    _worldPacket << Result;
+    _worldPacket << Unknown;
     return &_worldPacket;
 }
 }

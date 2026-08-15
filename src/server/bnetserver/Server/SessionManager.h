@@ -20,20 +20,29 @@
 
 #include "SocketMgr.h"
 #include "Session.h"
+#include <atomic>
 
 namespace Battlenet
 {
-    class SessionManager : public Trinity::Net::SocketMgr<Session>
+    class SessionNetworkThread final : public Trinity::Net::NetworkThread<Session, SessionNetworkThread>
     {
-        typedef SocketMgr<Session> BaseSocketMgr;
+    };
 
+    class SessionManager;
+
+    struct SessionManagerTraits
+    {
+        using Self = SessionManager;
+        using SocketType = Session;
+        using ThreadType = SessionNetworkThread;
+    };
+
+    class SessionManager final : public Trinity::Net::SocketMgr<SessionManagerTraits>
+    {
     public:
         static SessionManager& Instance();
 
-        bool StartNetwork(Trinity::Asio::IoContext& ioContext, std::string const& bindIp, uint16 port, int threadCount = 1) override;
-
-    protected:
-        Trinity::Net::NetworkThread<Session>* CreateThreads() const override;
+        std::atomic<uint32> SessionIdGenerator = 0;
     };
 }
 

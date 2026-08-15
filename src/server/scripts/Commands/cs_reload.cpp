@@ -62,12 +62,10 @@ EndScriptData */
 #include "PacketUtilities.h"
 #include "WorldSocket.h"
 #include "ClientConfigPackets.h"
-#include "WorldSession.h"
 #include "WorldPacket.h"
-#include "WorldSocket.h"
-#include "ObjectAccessor.h"
 #include "Corpse.h"
 #include "Creature.h"
+#include "PerksProgramMgr.h"
 #include "DynamicObject.h"
 #include "GameObject.h"
 #include "GridNotifiers.h"
@@ -77,21 +75,21 @@ EndScriptData */
 #include "Pet.h"
 #include "Player.h"
 #include "Transport.h"
-#include <boost/thread/shared_mutex.hpp>
-#include <boost/thread/locks.hpp>
 
-#if TRINITY_COMPILER == TRINITY_COMPILER_GNU
+#if TRINITY_COMPILER_IS_GCC
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif
+
+using namespace Trinity::ChatCommands;
 
 class reload_commandscript : public CommandScript
 {
 public:
     reload_commandscript() : CommandScript("reload_commandscript") { }
 
-    std::vector<ChatCommand> GetCommands() const override
+    std::span<ChatCommandBuilder const> GetCommands() const override
     {
-        static std::vector<ChatCommand> reloadAllCommandTable =
+        static ChatCommandTable reloadAllCommandTable =
         {
             { "achievement",                   rbac::RBAC_PERM_COMMAND_RELOAD_ALL_ACHIEVEMENT,                  true,  &HandleReloadAllAchievementCommand,              "" },
             { "area",                          rbac::RBAC_PERM_COMMAND_RELOAD_ALL_AREA,                         true,  &HandleReloadAllAreaCommand,                     "" },
@@ -105,7 +103,7 @@ public:
             { "spell",                         rbac::RBAC_PERM_COMMAND_RELOAD_ALL_SPELL,                        true,  &HandleReloadAllSpellCommand,                    "" },
             { "",                              rbac::RBAC_PERM_COMMAND_RELOAD_ALL,                              true,  &HandleReloadAllCommand,                         "" },
         };
-        static std::vector<ChatCommand> reloadCommandTable =
+        static ChatCommandTable reloadCommandTable =
         {
             { "auctions",                      rbac::RBAC_PERM_COMMAND_RELOAD_AUCTIONS,                         true,  &HandleReloadAuctionsCommand,                   "" },
             { "access_requirement",            rbac::RBAC_PERM_COMMAND_RELOAD_ACCESS_REQUIREMENT,               true,  &HandleReloadAccessRequirementCommand,          "" },
@@ -184,7 +182,6 @@ public:
             { "spell_linked_spell",            rbac::RBAC_PERM_COMMAND_RELOAD_SPELL_LINKED_SPELL,               true,  &HandleReloadSpellLinkedSpellCommand,           "" },
             { "spell_pet_auras",               rbac::RBAC_PERM_COMMAND_RELOAD_SPELL_PET_AURAS,                  true,  &HandleReloadSpellPetAurasCommand,              "" },
             { "spell_proc",                    rbac::RBAC_PERM_COMMAND_RELOAD_SPELL_PROC,                       true,  &HandleReloadSpellProcsCommand,                 "" },
-            { "spell_scripts",                 rbac::RBAC_PERM_COMMAND_RELOAD_SPELL_SCRIPTS,                    true,  &HandleReloadSpellScriptsCommand,               "" },
             { "spell_script_names",            rbac::RBAC_PERM_COMMAND_RELOAD_SPELL_SCRIPT_NAMES,               true,  &HandleReloadSpellScriptNamesCommand,           "" },
             { "spell_target_position",         rbac::RBAC_PERM_COMMAND_RELOAD_SPELL_TARGET_POSITION,            true,  &HandleReloadSpellTargetPositionCommand,        "" },
             { "spell_threats",                 rbac::RBAC_PERM_COMMAND_RELOAD_SPELL_THREATS,                    true,  &HandleReloadSpellThreatsCommand,               "" },
@@ -196,17 +193,19 @@ public:
             { "vehicle_template",              rbac::RBAC_PERM_COMMAND_RELOAD_VEHICLE_TEMPLATE,                 true,  &HandleReloadVehicleTemplateCommand,            "" },
             { "vehicle_accessory",             rbac::RBAC_PERM_COMMAND_RELOAD_VEHICLE_ACCESORY,                 true,  &HandleReloadVehicleAccessoryCommand,           "" },
             { "vehicle_template_accessory",    rbac::RBAC_PERM_COMMAND_RELOAD_VEHICLE_TEMPLATE_ACCESSORY,       true,  &HandleReloadVehicleTemplateAccessoryCommand,   "" },
-			{ "hotfixes",	                   rbac::RBAC_PERM_COMMAND_RELOAD_ALL,							    true,  &HandleReloadHotfixesCommand,				   "" },
-            { "creature_equip_template",	   rbac::RBAC_PERM_COMMAND_RELOAD_ALL,							    true,  &HandleReloadCreatureEquipTemplateCommand,	   "" },
-            { "gameobject_template",		   rbac::RBAC_PERM_COMMAND_RELOAD_ALL,							    true,  &HandleReloadGameObjectTemplateCommand,		   "" },
-            { "creature_template_addons",      rbac::RBAC_PERM_COMMAND_RELOAD_ALL,							    true,  &HandleReloadCreatureTemplateAddCommand,		   "" },
-            { "creature_addons",			   rbac::RBAC_PERM_COMMAND_RELOAD_ALL,							    true,  &HandleReloadCreatureAddonsCommand,			   "" },
+            { "hotfixes",                      rbac::RBAC_PERM_COMMAND_RELOAD_ALL,                              true,  &HandleReloadHotfixesCommand,                   "" },
+            { "creature_equip_template",       rbac::RBAC_PERM_COMMAND_RELOAD_ALL,                              true,  &HandleReloadCreatureEquipTemplateCommand,      "" },
+            { "gameobject_template",           rbac::RBAC_PERM_COMMAND_RELOAD_ALL,                              true,  &HandleReloadGameObjectTemplateCommand,         "" },
+            { "creature_template_addons",      rbac::RBAC_PERM_COMMAND_RELOAD_ALL,                              true,  &HandleReloadCreatureTemplateAddCommand,        "" },
+            { "creature_addons",               rbac::RBAC_PERM_COMMAND_RELOAD_ALL,                              true,  &HandleReloadCreatureAddonsCommand,             "" },
             { "creature_template_all",         rbac::RBAC_PERM_COMMAND_RELOAD_CREATURE_TEMPLATE,                true,  &HandleReloadCreatureTemplateAllCommand,        "" },
             { "creature_template_outfits",     rbac::RBAC_PERM_COMMAND_RELOAD_CREATURE_TEMPLATE,                true,  &HandleReloadCreatureTemplateOutfitsCommand,    "" },
+            { "perks_vendor",                  rbac::RBAC_PERM_COMMAND_RELOAD_ALL,                              true,  &HandleReloadPerksProgramCommand,               "" },
+            { "trading_post",                  rbac::RBAC_PERM_COMMAND_RELOAD_ALL,                              true,  &HandleReloadPerksProgramCommand,               "" },
         };
-        static std::vector<ChatCommand> commandTable =
+        static ChatCommandTable commandTable =
         {
-            { "reload",                        rbac::RBAC_PERM_COMMAND_RELOAD,                                  true,  nullptr,                                        "", reloadCommandTable },
+            { "reload",                        reloadCommandTable },
         };
         return commandTable;
     }
@@ -313,7 +312,6 @@ public:
 
         TC_LOG_INFO("misc", "Re-Loading Scripts...");
         HandleReloadEventScriptsCommand(handler, "a");
-        HandleReloadSpellScriptsCommand(handler, "a");
         HandleReloadSpellScriptNamesCommand(handler, "a");
         handler->SendGlobalGMSysMessage("DB tables `*_scripts` reloaded.");
         HandleReloadWpCommand(handler, "a");
@@ -506,13 +504,34 @@ public:
         {
             for (auto e : map->GetCreatureBySpawnIdStore())
             {
-                auto const& outfit = e.second->GetOutfit();
-                if (outfit && outfit->GetId())
-                    e.second->SetDisplayId(outfit->GetId());
+                // Get current outfit from creature
+                std::shared_ptr<CreatureOutfit> const& oldOutfit = e.second->GetOutfit();
+                if (!oldOutfit || !oldOutfit->GetId())
+                    continue;
+
+                // Get updated outfit from ObjectMgr by outfit ID
+                std::shared_ptr<CreatureOutfit> const& newOutfit = sObjectMgr->GetOutfit(oldOutfit->GetId());
+                if (newOutfit)
+                {
+                    // Update creature with new outfit (this will also update displayId)
+                    e.second->SetOutfit(newOutfit);
+                }
             }
         });
 
         handler->SendGlobalGMSysMessage("DB table `creature_template_outfits` reloaded.");
+        return true;
+    }
+
+    static bool HandleReloadPerksProgramCommand(ChatHandler* handler, char const* /*args*/)
+    {
+        TC_LOG_INFO("misc", "Re-Loading Perks Program (Trading Post) tables...");
+        sPerksProgramMgr->LoadVendorItems();
+        sPerksProgramMgr->LoadMonthlyRotation();
+        sPerksProgramMgr->LoadActivityIntervals();
+        sPerksProgramMgr->BuildCriteriaTreeMap();
+        sPerksProgramMgr->LoadCurrentActivities();
+        handler->SendGlobalGMSysMessage("Perks Program (Trading Post) tables reloaded.");
         return true;
     }
 
@@ -597,10 +616,16 @@ public:
         sObjectMgr->InitializeQueriesData(QUERY_DATA_QUESTS);
         handler->SendGlobalGMSysMessage("DB table `quest_template` (quest definitions) reloaded.");
 
+        /// Re-link criteria trees to new quest objective pointers after reload
+        sCriteriaMgr->ReloadQuestObjectiveLinks();
+
         /// dependent also from `gameobject` but this table not reloaded anyway
         TC_LOG_INFO("misc", "Re-Loading GameObjects for quests...");
         sObjectMgr->LoadGameObjectForQuests();
         handler->SendGlobalGMSysMessage("Data GameObjects for quests reloaded.");
+        TC_LOG_INFO("misc", "Re-Loading Criteria Lists...");
+        sCriteriaMgr->LoadCriteriaList();
+        handler->SendGlobalGMSysMessage("Criteria lists for quests reloaded.");
         sScriptMgr->NotifyScriptIDUpdate();
 
         return true;
@@ -972,26 +997,6 @@ public:
         return true;
     }
 
-    static bool HandleReloadSpellScriptsCommand(ChatHandler* handler, char const* args)
-    {
-        if (sMapMgr->IsScriptScheduled())
-        {
-            handler->SendSysMessage("DB scripts used currently, please attempt reload later.");
-            handler->SetSentErrorMessage(true);
-            return false;
-        }
-
-        if (*args != 'a')
-            TC_LOG_INFO("misc", "Re-Loading Scripts from `spell_scripts`...");
-
-        sObjectMgr->LoadSpellScripts();
-
-        if (*args != 'a')
-            handler->SendGlobalGMSysMessage("DB table `spell_scripts` reloaded.");
-
-        return true;
-    }
-
     static bool HandleReloadSpellScriptNamesCommand(ChatHandler* handler, const char* /*args*/)
     {
         TC_LOG_INFO("misc", "Reloading spell_script_names table...");
@@ -1218,11 +1223,12 @@ public:
 	
 	static bool HandleReloadHotfixesCommand(ChatHandler* handler, const char* /*args*/)
     {
-        // hotfix_data
+        // Reload hotfix data
         TC_LOG_INFO("misc", "Reloading hotfix info...");
         sDB2Manager.LoadHotfixData(13); //change on your lang mask 
 
-        // DB2
+        // DB2 stores - now thread-safe with RCU (Read-Copy-Update) semantics
+        // The DB2StorageBase uses atomic snapshots, so readers always see consistent data
         sAreaTableStore.LoadFromDB();
         sAreaTriggerStore.LoadFromDB();
         sArmorLocationStore.LoadFromDB();
@@ -1275,7 +1281,7 @@ public:
         sItemSetStore.LoadFromDB();
         sItemSetSpellStore.LoadFromDB();
         sItemSparseStore.LoadFromDB();
-        sItemSparseStore.LoadStringsFromDB(LocaleConstant::LOCALE_ruRU); // locale ruRU
+        sItemSparseStore.LoadStringsFromDB(LocaleConstant::LOCALE_ruRU);
         sItemSpecStore.LoadFromDB();
         sItemSpecOverrideStore.LoadFromDB();
         sMapStore.LoadFromDB();
@@ -1322,25 +1328,24 @@ public:
         sTalentStore.LoadFromDB();
         sTaxiNodesStore.LoadFromDB();
         sTaxiPathStore.LoadFromDB();
-
         sTextureFileDataStore.LoadFromDB();
         sModelFileDataStore.LoadFromDB();
         sChrCustomizationMaterialStore.LoadFromDB();
 
-        // For items.
+        // For items
         sObjectMgr->LoadItemTemplates();
         sObjectMgr->LoadItemTemplateAddon();
         sObjectMgr->LoadItemScriptNames();
 
 
-        // Send Packet
+        // Send hotfix packet to players
         std::shared_lock<std::shared_mutex> lock(*HashMapHolder<Player>::GetLock());
 
         HashMapHolder<Player>::MapType const& m = ObjectAccessor::GetPlayers();
         for (HashMapHolder<Player>::MapType::const_iterator itr = m.begin(); itr != m.end(); ++itr)
             itr->second->GetSession()->SendAvailableHotfixes();
 
-        handler->SendGlobalGMSysMessage("101 DB2 reloaded.");
+        handler->SendGlobalGMSysMessage("101 DB2 stores reloaded (thread-safe).");
         handler->SendGlobalGMSysMessage("Hotfixes data reloaded.");
 
         return true;

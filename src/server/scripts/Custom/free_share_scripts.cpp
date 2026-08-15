@@ -224,20 +224,21 @@ public:
     }
 };
 
+using namespace Trinity::ChatCommands;
 class free_share_scripts : public CommandScript
 {
 public:
-    free_share_scripts() : CommandScript("free_share_scripts") { }
+    free_share_scripts() : CommandScript("free_share_scripts") {}
 
-    std::vector<ChatCommand> GetCommands() const override
+    std::span<ChatCommandBuilder const> GetCommands() const override
     {
-        static std::vector<ChatCommand> typimgCommandTable =
+        static ChatCommandTable typimgCommandTable =
         {
             { "on",              rbac::RBAC_PERM_COMMAND_TYPING_ON,     false,      &HandleTipingOnCommand,     ""},
             { "off",             rbac::RBAC_PERM_COMMAND_TYPING_OFF,    false,      &HandleTipingOffCommand,    ""},
         };
 
-        static std::vector<ChatCommand> commandTable =
+        static ChatCommandTable commandTable =
         {
             { "barbershop",      rbac::RBAC_PERM_COMMAND_BARBER,        false,      &HandleBarberCommand,       ""},
             { "castgroup",       rbac::RBAC_PERM_COMMAND_CAST_GROUP,    false,      &HandleCastGroupCommand,    ""},
@@ -280,12 +281,23 @@ public:
     }
 
     // custom command .barber
-    static bool HandleBarberCommand(ChatHandler* handler)
+    static bool HandleBarberCommand(ChatHandler* handler, Optional<uint32> featureMask)
     {
-        WorldPackets::Misc::EnableBarberShop packet;
-        handler->GetSession()->GetPlayer()->SendDirectMessage(packet.Write());
+        if (!featureMask) {
+            featureMask = 0;
+        }
 
-        return true;
+        if (WorldSession* session = handler->GetSession())
+        {
+            WorldPackets::Misc::EnableBarberShop enableBarberShop;
+            enableBarberShop.CustomizationFeatureMask = 0;
+            session->GetPlayer()->SendDirectMessage(enableBarberShop.Write());
+            return true;
+        }
+
+        handler->SendSysMessage(LANG_USE_BOL);
+        handler->SetSentErrorMessage(true);
+        return false;
     }
 
     // custom command .castgroup
@@ -572,4 +584,3 @@ void AddSC_free_share_scripts()
     new PlayerScript_TimeSync();
     new WorldScript_TimeSync();
 }
-

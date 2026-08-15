@@ -143,6 +143,17 @@ namespace WorldPackets
             bool SuppressChatLog = false;
         };
 
+        class SetCurrencyFlags final : public ClientPacket
+        {
+        public:
+            explicit SetCurrencyFlags(WorldPacket&& packet) : ClientPacket(CMSG_SET_CURRENCY_FLAGS, std::move(packet)) { }
+
+            void Read() override;
+
+            uint32 CurrencyID = 0;
+            CurrencyDbFlags Flags = { };
+        };
+
         class SetSelection final : public ClientPacket
         {
         public:
@@ -277,7 +288,7 @@ namespace WorldPackets
 
             WorldPacket const* Write() override;
 
-            uint32 DifficultyID     = 0;
+            int16 DifficultyID      = 0;
             bool IsTournamentRealm  = false;
             bool XRealmPvpAlert     = false;
             bool BlockExitingLoadingScreen = false;     // when set to true, sending SMSG_UPDATE_OBJECT with CreateObject Self bit = true will not hide loading screen
@@ -285,6 +296,11 @@ namespace WorldPackets
             Optional<uint32> RestrictedAccountMaxLevel;
             Optional<uint64> RestrictedAccountMaxMoney;
             Optional<uint32> InstanceGroupSize;
+
+            ObjectGuid HouseGUID;
+            ObjectGuid HouseOwnerAccountGUID;
+            ObjectGuid HouseCosmeticOwnerGUID;
+            ObjectGuid NeighborhoodGUID;
         };
 
         class SetDungeonDifficulty final : public ClientPacket
@@ -294,7 +310,7 @@ namespace WorldPackets
 
             void Read() override;
 
-            uint32 DifficultyID = 0;
+            int16 DifficultyID = 0;
         };
 
         class SetRaidDifficulty final : public ClientPacket
@@ -305,7 +321,7 @@ namespace WorldPackets
             void Read() override;
 
             int32 Legacy = 0;
-            int32 DifficultyID = 0;
+            int16 DifficultyID = 0;
         };
 
         class DungeonDifficultySet final : public ServerPacket
@@ -315,7 +331,7 @@ namespace WorldPackets
 
             WorldPacket const* Write() override;
 
-            int32 DifficultyID = 0;
+            int16 DifficultyID = 0;
         };
 
         class RaidDifficultySet final : public ServerPacket
@@ -326,7 +342,7 @@ namespace WorldPackets
             WorldPacket const* Write() override;
 
             int32 Legacy = 0;
-            int32 DifficultyID = 0;
+            int16 DifficultyID = 0;
         };
 
         class CorpseReclaimDelay : public ServerPacket
@@ -1037,8 +1053,8 @@ namespace WorldPackets
             bool ForceToast = false;    ///< Ignores ITEM_FLAG3_DO_NOT_TOAST
             uint32 CurrencyID = 0;
         };
-		
-		class LegendaryCraftingOpenNpc  final : public ServerPacket
+
+         class LegendaryCraftingOpenNpc  final : public ServerPacket
         {
         public:
             explicit LegendaryCraftingOpenNpc() : ServerPacket(SMSG_RUNEFORGE_LEGENDARY_CRAFTING_OPEN_NPC, 16) {}
@@ -1089,6 +1105,24 @@ namespace WorldPackets
             WarbandSceneCollectionContainer const* WarbandScenes = nullptr;
         };
 
+        class FactionSelect final : public ClientPacket
+        {
+        public:
+            FactionSelect(WorldPacket&& packet) : ClientPacket(CMSG_NEUTRAL_PLAYER_SELECT_FACTION, std::move(packet)) {}
+
+            void Read() override;
+
+            uint8 FactionChoice = 0;
+        };
+
+        class FactionSelectUI final : public ServerPacket
+        {
+        public:
+            FactionSelectUI() : ServerPacket(SMSG_SHOW_NEUTRAL_PLAYER_FACTION_SELECT_UI, 0) {}
+
+            WorldPacket const* Write() override { return &_worldPacket; }
+        };
+
         class AccountNotificationAcknowledge final : public ClientPacket
         {
         public:
@@ -1127,25 +1161,7 @@ namespace WorldPackets
             uint32 SpellID = 0;
             uint32 SkillLineID = 0;
         };
-
-        class FactionSelectUI final : public ServerPacket
-        {
-        public:
-            FactionSelectUI() : ServerPacket(SMSG_SHOW_NEUTRAL_PLAYER_FACTION_SELECT_UI, 0) { }
-
-            WorldPacket const* Write() override { return &_worldPacket; }
-        };
-
-        class FactionSelect final : public ClientPacket
-        {
-        public:
-            FactionSelect(WorldPacket&& packet) : ClientPacket(CMSG_NEUTRAL_PLAYER_SELECT_FACTION, std::move(packet)) { }
-
-            void Read() override;
-
-            uint8 FactionChoice = 0;
-        };
-
+        
         class ActivateSoulbind final : public ClientPacket
         {
         public:
@@ -1165,6 +1181,76 @@ namespace WorldPackets
 
             uint8 unk;
             uint32 CovenantID;
+        };
+
+        class ChromieTimeSelectExpansion final : public ClientPacket
+        {
+        public:
+            explicit ChromieTimeSelectExpansion(WorldPacket&& packet) : ClientPacket(CMSG_CHROMIE_TIME_SELECT_EXPANSION, std::move(packet)) {}
+
+            void Read() override;
+
+            ObjectGuid Vendor;     // packed GUID of the Chromie NPC the player is interacting with
+            int32 ExpansionID = 0; // UIChromieTimeExpansionInfo.ID (NOT the Expansions enum)
+        };
+
+        class ChromieTimeSelectExpansionSuccess final : public ServerPacket
+        {
+        public:
+            ChromieTimeSelectExpansionSuccess() : ServerPacket(SMSG_CHROMIE_TIME_SELECT_EXPANSION_SUCCESS, 0) {}
+
+            WorldPacket const* Write() override { return &_worldPacket; }
+        };
+
+        class TimerunningSeasonEnded final : public ServerPacket
+        {
+        public:
+            TimerunningSeasonEnded() : ServerPacket(SMSG_TIMERUNNING_SEASON_ENDED, 4) {}
+
+            WorldPacket const* Write() override;
+
+            uint32 SeasonID = 0;
+        };
+
+        struct CTROptionsBlock
+        {
+            std::vector<uint32> ConditionalFlags;
+            uint8 FactionGroup = 0;
+            uint32 ChromieTimeExpansionMask = 0;
+        };
+
+        class SetCtrOptions final : public ServerPacket
+        {
+        public:
+            SetCtrOptions() : ServerPacket(SMSG_SET_CTR_OPTIONS, 26) {}
+
+            WorldPacket const* Write() override;
+
+            CTROptionsBlock Previous;
+            CTROptionsBlock Current;
+        };
+
+        class RequestStoreFrontInfoUpdate final : public ClientPacket
+        {
+        public:
+            explicit RequestStoreFrontInfoUpdate(WorldPacket&& packet) : ClientPacket(CMSG_REQUEST_STORE_FRONT_INFO_UPDATE, std::move(packet)) { }
+
+            void Read() override;
+
+            uint32 StoreFrontID = 0;
+            std::vector<uint32> CurrencyIDs;
+        };
+
+        class AccountStoreFrontUpdate final : public ServerPacket
+        {
+        public:
+            AccountStoreFrontUpdate() : ServerPacket(SMSG_ACCOUNT_STORE_FRONT_UPDATE, 12) { }
+
+            WorldPacket const* Write() override;
+
+            uint32 StoreFrontID = 0;
+            int32 Result = 0;
+            uint32 Unknown = 0;
         };
     }
 }

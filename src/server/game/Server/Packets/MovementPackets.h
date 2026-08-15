@@ -22,6 +22,7 @@
 #include "CombatLogPacketsCommon.h"
 #include "MovementInfo.h"
 #include "Optional.h"
+#include "PacketUtilities.h"
 
 namespace Movement
 {
@@ -105,16 +106,16 @@ namespace WorldPackets
             uint8 AnimTier = 0;
         };
 
-        struct MonsterSplineUnknown901
+        struct MonsterSplineSpellVisualNodeInfo
         {
-            struct Inner
-            {
-                int32 Unknown_1 = 0;
-                Spells::SpellCastVisual Visual;
-                uint32 Unknown_4 = 0;
-            };
+            int32 SpellID = 0;
+            Spells::SpellCastVisual Visual;
+            uint32 StartNodeIndex = 0;
+        };
 
-            std::array<Inner, 16> Data;
+        struct MonsterSplineClientSpellVisualData
+        {
+            std::array<MonsterSplineSpellVisualNodeInfo, 16> NodeInfo;
         };
 
         struct MovementSpline
@@ -136,7 +137,7 @@ namespace WorldPackets
             Optional<MonsterSplineJumpExtraData> JumpExtraData;
             Optional<MonsterSplineTurnData> TurnData;
             Optional<MonsterSplineAnimTierTransition> AnimTierTransition;
-            Optional<MonsterSplineUnknown901> Unknown901;
+            Optional<MonsterSplineClientSpellVisualData> SpellVisualData;
             float FaceDirection         = 0.0f;
             ObjectGuid FaceGUID;
             TaggedPosition<Position::XYZ> FaceSpot;
@@ -243,10 +244,20 @@ namespace WorldPackets
             float SpeedMax = 1.0f;
         };
 
+        class MoveAddImpulse final : public ServerPacket
+        {
+        public:
+            MoveAddImpulse() : ServerPacket(SMSG_MOVE_ADD_IMPULSE, 16 + 4 + 4 * 3) {}
+            WorldPacket const* Write() override;
+            ObjectGuid MoverGUID;
+            uint32 SequenceIndex = 0;
+            TaggedPosition<Position::XYZ> Direction;
+        };
+
         class MoveSplineSetFlag final : public ServerPacket
         {
         public:
-            explicit MoveSplineSetFlag(OpcodeServer opcode) : ServerPacket(opcode, 8) { }
+            explicit MoveSplineSetFlag(OpcodeServer opcode) : ServerPacket(opcode, 18) { }
 
             WorldPacket const* Write() override;
 
@@ -256,7 +267,7 @@ namespace WorldPackets
         class MoveSetFlag final : public ServerPacket
         {
         public:
-            explicit MoveSetFlag(OpcodeServer opcode) : ServerPacket(opcode, 12) { }
+            explicit MoveSetFlag(OpcodeServer opcode) : ServerPacket(opcode, 18 + 4) { }
 
             WorldPacket const* Write() override;
 
@@ -316,6 +327,7 @@ namespace WorldPackets
             TeleportLocation Loc;
             TaggedPosition<Position::XYZ> MovementOffset;    // Adjusts all pending movement events by this offset
             int32 Counter = 0;
+            uint64 InstanceID = 0u;                          // Required for damageMeterResetOnNewInstance cvar to function
         };
 
         class WorldPortResponse final : public ClientPacket
@@ -766,16 +778,75 @@ namespace WorldPackets
             uint32 Ticks = 0;
         };
 
-        class MoveAddImpulse final : public ServerPacket
+        class MoveApplyInertia final : public ServerPacket
         {
         public:
-            explicit MoveAddImpulse() : ServerPacket(SMSG_MOVE_ADD_IMPULSE, 4 + 4) { }
+            explicit MoveApplyInertia() : ServerPacket(SMSG_MOVE_APPLY_INERTIA, 16 + 4 + 4 + 4) { }
 
             WorldPacket const* Write() override;
 
             ObjectGuid MoverGUID;
-            uint32 SequenceIndex = 1;
-            TaggedPosition<Position::XYZ> Direction;
+            uint32 SequenceIndex = 0;
+            int32 InertiaID = 0;
+            Duration<Milliseconds, uint32> LifetimeMs;
+        };
+
+        class MoveRemoveInertia final : public ServerPacket
+        {
+        public:
+            explicit MoveRemoveInertia() : ServerPacket(SMSG_MOVE_REMOVE_INERTIA, 16 + 4 + 4) { }
+
+            WorldPacket const* Write() override;
+
+            ObjectGuid MoverGUID;
+            uint32 SequenceIndex = 0;
+            int32 InertiaID = 0;
+        };
+
+        class MoveApplyInertiaAck final : public ClientPacket
+        {
+        public:
+            explicit MoveApplyInertiaAck(WorldPacket&& packet) : ClientPacket(CMSG_MOVE_APPLY_INERTIA_ACK, std::move(packet)) { }
+
+            void Read() override;
+
+            MovementAck Ack;
+            int32 InertiaID = 0;
+            Duration<Milliseconds, uint32> LifetimeMs;
+        };
+
+        class MoveRemoveInertiaAck final : public ClientPacket
+        {
+        public:
+            explicit MoveRemoveInertiaAck(WorldPacket&& packet) : ClientPacket(CMSG_MOVE_REMOVE_INERTIA_ACK, std::move(packet)) { }
+
+            void Read() override;
+
+            MovementAck Ack;
+            int32 InertiaID = 0;
+        };
+
+        class MoveUpdateApplyInertia final : public ServerPacket
+        {
+        public:
+            explicit MoveUpdateApplyInertia() : ServerPacket(SMSG_MOVE_UPDATE_APPLY_INERTIA, sizeof(MovementInfo) + 4 + 4) { }
+
+            WorldPacket const* Write() override;
+
+            MovementInfo* Status = nullptr;
+            int32 InertiaID = 0;
+            Duration<Milliseconds, uint32> LifetimeMs;
+        };
+
+        class MoveUpdateRemoveInertia final : public ServerPacket
+        {
+        public:
+            explicit MoveUpdateRemoveInertia() : ServerPacket(SMSG_MOVE_UPDATE_REMOVE_INERTIA, sizeof(MovementInfo) + 4) { }
+
+            WorldPacket const* Write() override;
+
+            MovementInfo* Status = nullptr;
+            int32 InertiaID = 0;
         };
 
         ByteBuffer& operator>>(ByteBuffer& data, MovementAck& ack);

@@ -174,19 +174,20 @@ void EscortAI::UpdateAI(uint32 diff)
                     if (_despawnAtEnd)
                     {
                         TC_LOG_DEBUG("scripts.ai.escortai", "EscortAI::UpdateAI: reached end of waypoints, despawning at end ({})", me->GetGUID().ToString());
-                        if (_returnToStart)
-                        {
-                            Position respawnPosition = me->GetRespawnPosition();
-                            me->GetMotionMaster()->MovePoint(POINT_HOME, respawnPosition);
-                            TC_LOG_DEBUG("scripts.ai.escortai", "EscortAI::UpdateAI: returning to spawn location: {} ({})", respawnPosition.ToString(), me->GetGUID().ToString());
-                        }
-                        else if (_instantRespawn)
+                        if (_instantRespawn)
                             me->Respawn(true);
                         else
                             me->DespawnOrUnsummon();
                     }
+                    else if (_returnToStart)
+                    {
+                        Position respawnPosition = me->GetRespawnPosition();
+                        me->GetMotionMaster()->MovePoint(POINT_HOME, respawnPosition);
+                        TC_LOG_DEBUG("scripts.ai.escortai", "EscortAI::UpdateAI: returning to spawn location: {} ({})", respawnPosition, me->GetGUID().ToString());
+                    }
+                    else
+                        RemoveEscortState(STATE_ESCORT_ESCORTING);
                     TC_LOG_DEBUG("scripts.ai.escortai", "EscortAI::UpdateAI: reached end of waypoints ({})", me->GetGUID().ToString());
-                    RemoveEscortState(STATE_ESCORT_ESCORTING);
                     return;
                 }
 
@@ -257,8 +258,7 @@ void EscortAI::AddWaypoint(uint32 id, float x, float y, float z, float orientati
     Trinity::NormalizeMapCoord(x);
     Trinity::NormalizeMapCoord(y);
 
-    WaypointNode& waypoint = _path.Nodes.emplace_back(id, x, y, z, orientation, waitTime);
-    waypoint.MoveType = run ? WaypointMoveType::Run : WaypointMoveType::Walk;
+    _path.Nodes.emplace_back(id, x, y, z, orientation, waitTime, run ? WaypointMoveType::Run : WaypointMoveType::Walk);
 }
 
 void EscortAI::ResetPath()
@@ -307,7 +307,7 @@ void EscortAI::Start(bool isActiveAttacker /* = true*/, ObjectGuid playerGUID /*
 
     if (_path.Nodes.empty())
     {
-        TC_LOG_ERROR("scripts.ai.escortai", "EscortAI::Start: (script: {}) is set to return home after waypoint end and instant respawn at waypoint end. Creature will never despawn ({})", me->GetScriptName(), me->GetGUID().ToString());
+        TC_LOG_ERROR("scripts.ai.escortai", "EscortAI::Start: (script: {}) starts with 0 waypoints (possible missing entry in script_waypoint. Quest: {}) ({})", me->GetScriptName(), quest ? quest->GetQuestId() : 0, me->GetGUID());
         return;
     }
 

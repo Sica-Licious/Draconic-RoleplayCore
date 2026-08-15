@@ -26,6 +26,7 @@
 #include "CinematicMgr.h"
 #include "ClientConfigPackets.h"
 #include "Common.h"
+#include "ConditionMgr.h"
 #include "Conversation.h"
 #include "ConversationAI.h"
 #include "Corpse.h"
@@ -46,7 +47,9 @@
 #include "ObjectAccessor.h"
 #include "ObjectMgr.h"
 #include "OutdoorPvP.h"
+#include "PhasingHandler.h"
 #include "Player.h"
+#include "ReputationMgr.h"
 #include "RestMgr.h"
 #include "ScriptMgr.h"
 #include "Spell.h"
@@ -95,9 +98,9 @@ void WorldSession::HandleWhoOpcode(WorldPackets::Who::WhoRequestPkt& whoRequest)
 {
     WorldPackets::Who::WhoRequest& request = whoRequest.Request;
 
-    TC_LOG_DEBUG("network", "WorldSession::HandleWhoOpcode: MinLevel: {}, MaxLevel: {}, Name: {} (VirtualRealmName: {}), Guild: {} (GuildVirtualRealmName: {}), RaceFilter: {}, ClassFilter: {}, Areas: {}, Words: {}.",
+    TC_LOG_DEBUG("network", "WorldSession::HandleWhoOpcode: MinLevel: {}, MaxLevel: {}, Name: {} (VirtualRealmName: {}), Guild: {} (GuildVirtualRealmName: {}), RaceFilter: 0x{:X}{:08X}, ClassFilter: {}, Areas: {}, Words: {}.",
         request.MinLevel, request.MaxLevel, request.Name, request.VirtualRealmName, request.Guild, request.GuildVirtualRealmName,
-        request.RaceFilter.RawValue, request.ClassFilter, whoRequest.Areas.size(), request.Words.size());
+        request.RaceFilter.RawValue[1], request.RaceFilter.RawValue[0], request.ClassFilter, whoRequest.Areas.size(), request.Words.size());
 
     // zones count, client limit = 10 (2.0.10)
     // can't be received from real client or broken packet
@@ -612,7 +615,7 @@ void WorldSession::HandleAreaTriggerOpcode(WorldPackets::AreaTrigger::AreaTrigge
         return;
 
     bool teleported = false;
-    if (player->GetMapId() != at->target_mapId)
+    if (player->GetMapId() != at->Loc.GetMapId())
     {
         if (!player->IsAlive())
         {
@@ -622,7 +625,7 @@ void WorldSession::HandleAreaTriggerOpcode(WorldPackets::AreaTrigger::AreaTrigge
                 uint32 corpseMap = player->GetCorpseLocation().GetMapId();
                 do
                 {
-                    if (corpseMap == at->target_mapId)
+                    if (corpseMap == at->Loc.GetMapId())
                         break;
 
                     InstanceTemplate const* corpseInstance = sObjectMgr->GetInstanceTemplate(corpseMap);
@@ -635,52 +638,56 @@ void WorldSession::HandleAreaTriggerOpcode(WorldPackets::AreaTrigger::AreaTrigge
                     return;
                 }
 
-                TC_LOG_DEBUG("maps", "MAP: Player '{}' has corpse in instance {} and can enter.", player->GetName(), at->target_mapId);
+                TC_LOG_DEBUG("maps", "MAP: Player '{}' has corpse in instance {} and can enter.", player->GetName(), at->Loc.GetMapId());
             }
             else
+            {
                 TC_LOG_DEBUG("maps", "Map::CanPlayerEnter - player '{}' is dead but does not have a corpse!", player->GetName());
+                SendPacket(WorldPackets::AreaTrigger::AreaTriggerNoCorpse().Write());
+                return;
+            }
         }
 
-        if (TransferAbortParams denyReason = Map::PlayerCannotEnter(at->target_mapId, player))
+        if (TransferAbortParams denyReason = Map::PlayerCannotEnter(at->Loc.GetMapId(), player))
         {
             switch (denyReason.Reason)
             {
                 case TRANSFER_ABORT_MAP_NOT_ALLOWED:
-                    TC_LOG_DEBUG("maps", "MAP: Player '{}' attempted to enter map with id {} which has no entry", player->GetName(), at->target_mapId);
+                    TC_LOG_DEBUG("maps", "MAP: Player '{}' attempted to enter map with id {} which has no entry", player->GetName(), at->Loc.GetMapId());
                     break;
                 case TRANSFER_ABORT_DIFFICULTY:
-                    TC_LOG_DEBUG("maps", "MAP: Player '{}' attempted to enter instance map {} but the requested difficulty was not found", player->GetName(), at->target_mapId);
+                    TC_LOG_DEBUG("maps", "MAP: Player '{}' attempted to enter instance map {} but the requested difficulty was not found", player->GetName(), at->Loc.GetMapId());
                     break;
                 case TRANSFER_ABORT_NEED_GROUP:
-                    TC_LOG_DEBUG("maps", "MAP: Player '{}' must be in a raid group to enter map {}", player->GetName(), at->target_mapId);
+                    TC_LOG_DEBUG("maps", "MAP: Player '{}' must be in a raid group to enter map {}", player->GetName(), at->Loc.GetMapId());
                     player->SendRaidGroupOnlyMessage(RAID_GROUP_ERR_ONLY, 0);
                     break;
                 case TRANSFER_ABORT_LOCKED_TO_DIFFERENT_INSTANCE:
-                    TC_LOG_DEBUG("maps", "MAP: Player '{}' cannot enter instance map {} because their permanent bind is incompatible with their group's", player->GetName(), at->target_mapId);
+                    TC_LOG_DEBUG("maps", "MAP: Player '{}' cannot enter instance map {} because their permanent bind is incompatible with their group's", player->GetName(), at->Loc.GetMapId());
                     break;
                 case TRANSFER_ABORT_ALREADY_COMPLETED_ENCOUNTER:
-                    TC_LOG_DEBUG("maps", "MAP: Player '{}' cannot enter instance map {} because their permanent bind is incompatible with their group's", player->GetName(), at->target_mapId);
+                    TC_LOG_DEBUG("maps", "MAP: Player '{}' cannot enter instance map {} because their permanent bind is incompatible with their group's", player->GetName(), at->Loc.GetMapId());
                     break;
                 case TRANSFER_ABORT_TOO_MANY_INSTANCES:
-                    TC_LOG_DEBUG("maps", "MAP: Player '{}' cannot enter instance map {} because he has exceeded the maximum number of instances per hour.", player->GetName(), at->target_mapId);
+                    TC_LOG_DEBUG("maps", "MAP: Player '{}' cannot enter instance map {} because he has exceeded the maximum number of instances per hour.", player->GetName(), at->Loc.GetMapId());
                     break;
                 case TRANSFER_ABORT_MAX_PLAYERS:
                     break;
                 case TRANSFER_ABORT_ZONE_IN_COMBAT:
                     break;
                 case TRANSFER_ABORT_NOT_FOUND:
-                    TC_LOG_DEBUG("maps", "MAP: Player '{}' cannot enter instance map {} because instance is resetting.", player->GetName(), at->target_mapId);
+                    TC_LOG_DEBUG("maps", "MAP: Player '{}' cannot enter instance map {} because instance is resetting.", player->GetName(), at->Loc.GetMapId());
                     break;
                 default:
                     break;
             }
 
             if (denyReason.Reason != TRANSFER_ABORT_NEED_GROUP)
-                player->SendTransferAborted(at->target_mapId, denyReason.Reason, denyReason.Arg, denyReason.MapDifficultyXConditionId);
+                player->SendTransferAborted(at->Loc.GetMapId(), denyReason.Reason, denyReason.Arg, denyReason.MapDifficultyXConditionId);
 
             if (!player->IsAlive() && player->HasCorpse())
             {
-                if (player->GetCorpseLocation().GetMapId() == at->target_mapId)
+                if (player->GetCorpseLocation().GetMapId() == at->Loc.GetMapId())
                 {
                     player->ResurrectPlayer(0.5f);
                     player->SpawnCorpseBones();
@@ -697,11 +704,11 @@ void WorldSession::HandleAreaTriggerOpcode(WorldPackets::AreaTrigger::AreaTrigge
 
     if (!teleported)
     {
-        WorldSafeLocsEntry const* entranceLocation = player->GetInstanceEntrance(at->target_mapId);
-        if (entranceLocation && player->GetMapId() != at->target_mapId)
+        WorldSafeLocsEntry const* entranceLocation = player->GetInstanceEntrance(at->Loc.GetMapId());
+        if (entranceLocation && player->GetMapId() != at->Loc.GetMapId())
             player->TeleportTo(entranceLocation->Loc, TELE_TO_NOT_LEAVE_TRANSPORT);
         else
-            player->TeleportTo(at->target_mapId, at->target_X, at->target_Y, at->target_Z, at->target_Orientation, TELE_TO_NOT_LEAVE_TRANSPORT);
+            player->TeleportTo(at->Loc, TELE_TO_NOT_LEAVE_TRANSPORT);
     }
 }
 
@@ -966,10 +973,6 @@ void WorldSession::HandleSetDungeonDifficultyOpcode(WorldPackets::Misc::SetDunge
         return;
     }
 
-    Difficulty difficultyID = Difficulty(difficultyEntry->ID);
-    if (difficultyID == _player->GetDungeonDifficultyID())
-        return;
-
     // cannot reset while in an instance
     Map* map = _player->FindMap();
     if (map && map->Instanceable())
@@ -979,9 +982,14 @@ void WorldSession::HandleSetDungeonDifficultyOpcode(WorldPackets::Misc::SetDunge
         return;
     }
 
+    Difficulty difficultyID = Difficulty(difficultyEntry->ID);
+
     Group* group = _player->GetGroup();
     if (group)
     {
+        if (difficultyID == group->GetDungeonDifficultyID())
+            return;
+
         if (!group->IsLeader(_player->GetGUID()))
             return;
 
@@ -992,12 +1000,15 @@ void WorldSession::HandleSetDungeonDifficultyOpcode(WorldPackets::Misc::SetDunge
         group->ResetInstances(InstanceResetMethod::OnChangeDifficulty, _player);
         group->SetDungeonDifficultyID(difficultyID);
     }
-    else
-    {
+
+    if (difficultyID == _player->GetDungeonDifficultyID())
+        return;
+
+    if (!group)
         _player->ResetInstances(InstanceResetMethod::OnChangeDifficulty);
-        _player->SetDungeonDifficultyID(difficultyID);
-        _player->SendDungeonDifficulty();
-    }
+
+    _player->SetDungeonDifficultyID(difficultyID);
+    _player->SendDungeonDifficulty();
 }
 
 void WorldSession::HandleSetRaidDifficultyOpcode(WorldPackets::Misc::SetRaidDifficulty& setRaidDifficulty)
@@ -1031,10 +1042,6 @@ void WorldSession::HandleSetRaidDifficultyOpcode(WorldPackets::Misc::SetRaidDiff
         return;
     }
 
-    Difficulty difficultyID = Difficulty(difficultyEntry->ID);
-    if (difficultyID == (setRaidDifficulty.Legacy ?  _player->GetLegacyRaidDifficultyID() : _player->GetRaidDifficultyID()))
-        return;
-
     // cannot reset while in an instance
     Map* map = _player->FindMap();
     if (map && map->Instanceable())
@@ -1044,9 +1051,14 @@ void WorldSession::HandleSetRaidDifficultyOpcode(WorldPackets::Misc::SetRaidDiff
         return;
     }
 
+    Difficulty difficultyID = Difficulty(difficultyEntry->ID);
+
     Group* group = _player->GetGroup();
     if (group)
     {
+        if (difficultyID == (setRaidDifficulty.Legacy ? group->GetLegacyRaidDifficultyID() : group->GetRaidDifficultyID()))
+            return;
+
         if (!group->IsLeader(_player->GetGUID()))
             return;
 
@@ -1060,16 +1072,19 @@ void WorldSession::HandleSetRaidDifficultyOpcode(WorldPackets::Misc::SetRaidDiff
         else
             group->SetRaidDifficultyID(difficultyID);
     }
-    else
-    {
-        _player->ResetInstances(InstanceResetMethod::OnChangeDifficulty);
-        if (setRaidDifficulty.Legacy)
-            _player->SetLegacyRaidDifficultyID(difficultyID);
-        else
-            _player->SetRaidDifficultyID(difficultyID);
 
-        _player->SendRaidDifficulty(setRaidDifficulty.Legacy != 0);
-    }
+    if (difficultyID == (setRaidDifficulty.Legacy ? _player->GetLegacyRaidDifficultyID() : _player->GetRaidDifficultyID()))
+        return;
+
+    if (!group)
+        _player->ResetInstances(InstanceResetMethod::OnChangeDifficulty);
+
+    if (setRaidDifficulty.Legacy)
+        _player->SetLegacyRaidDifficultyID(difficultyID);
+    else
+        _player->SetRaidDifficultyID(difficultyID);
+
+    _player->SendRaidDifficulty(setRaidDifficulty.Legacy != 0);
 }
 
 void WorldSession::HandleSetTaxiBenchmark(WorldPackets::Misc::SetTaxiBenchmarkMode& packet)
@@ -1192,7 +1207,7 @@ void WorldSession::HandleCloseInteraction(WorldPackets::Misc::CloseInteraction& 
         if (Creature* creature = _player->GetMap()->GetCreature(closeInteraction.SourceGuid))
             creature->SendMirrorSound(_player, 1);
 #endif
-	
+        
     if (_player->PlayerTalkClass->GetInteractionData().IsLaunchedByQuest)
         _player->PlayerTalkClass->GetInteractionData().IsLaunchedByQuest = false;
     else if (_player->PlayerTalkClass->GetInteractionData().SourceGuid == closeInteraction.SourceGuid)
@@ -1240,6 +1255,146 @@ void WorldSession::HandleQueryCountdownTimer(WorldPackets::Misc::QueryCountdownT
     startTimer.TotalTime = info->GetTotalTime();
 
     _player->SendDirectMessage(startTimer.Write());
+}
+
+void WorldSession::HandleSetCurrencyFlags(WorldPackets::Misc::SetCurrencyFlags const& setCurrenctFlags)
+{
+    _player->SetCurrencyFlagsFromClient(setCurrenctFlags.CurrencyID, setCurrenctFlags.Flags);
+}
+
+void WorldSession::HandleSelectFactionOpcode(WorldPackets::Misc::FactionSelect& selectFaction)
+{
+    if (!_player)
+        return;
+
+    enum FactionSelection
+    {
+        JOIN_HORDE = 0,
+        JOIN_ALLIANCE = 1,
+
+        SPELL_TRIGGER_FACTION_CHOICE_ALLIANCE = 113244,
+        SPELL_TRIGGER_FACTION_CHOICE_HORDE = 113245
+    };
+
+    TC_LOG_INFO("entities.player", "HandleSelectFactionOpcode: Player {} (GUID: {}) attempting to select faction: {}",
+        _player ? _player->GetName() : "<null>",
+        _player ? _player->GetGUID().ToString() : "<null>",
+        selectFaction.FactionChoice);
+
+    if (_player->GetRace() != RACE_PANDAREN_NEUTRAL)
+    {
+        TC_LOG_WARN("entities.player", "HandleSelectFactionOpcode: Player {} (GUID: {}) is not neutral pandaren (race: {}), rejecting faction selection",
+            _player ? _player->GetName() : "<null>",
+            _player ? _player->GetGUID().ToString() : "<null>",
+            _player ? _player->GetRace() : 0);
+
+        // Send error result to client
+        WorldPackets::Character::NeutralPlayerFactionSelectResult result;
+        result.Success = false;
+        result.NewRaceID = _player ? _player->GetRace() : 0;
+        _player->GetSession()->SendPacket(result.Write());
+        return;
+    }
+
+    if (selectFaction.FactionChoice > JOIN_ALLIANCE)
+    {
+        TC_LOG_WARN("entities.player", "HandleSelectFactionOpcode: Player {} (GUID: {}) sent invalid faction choice: {}",
+            _player->GetName(), _player->GetGUID().ToString(), selectFaction.FactionChoice);
+
+        // Send error result to client
+        WorldPackets::Character::NeutralPlayerFactionSelectResult result;
+        result.Success = false;
+        result.NewRaceID = _player->GetRace();
+        _player->GetSession()->SendPacket(result.Write());
+        return;
+    }
+
+    // Additional validation: check if player already has a faction (shouldn't happen but safety check)
+    if (_player->GetRace() == RACE_PANDAREN_ALLIANCE || _player->GetRace() == RACE_PANDAREN_HORDE)
+    {
+        TC_LOG_WARN("entities.player", "HandleSelectFactionOpcode: Player {} (GUID: {}) already has faction (race: {}), rejecting faction selection",
+            _player->GetName(), _player->GetGUID().ToString(), _player->GetRace());
+
+        // Send error result to client
+        WorldPackets::Character::NeutralPlayerFactionSelectResult result;
+        result.Success = false;
+        result.NewRaceID = _player->GetRace();
+        _player->GetSession()->SendPacket(result.Write());
+        return;
+    }
+
+    Races newRace = RACE_NONE;
+    uint32 languageSpell1 = 0;
+    uint32 languageSpell2 = 0;
+    uint32 triggerSpell = 0;
+
+    switch (selectFaction.FactionChoice)
+    {
+    case JOIN_ALLIANCE:
+        newRace = RACE_PANDAREN_ALLIANCE;
+        languageSpell1 = SPELL_LEARN_LANGUAGE_COMMON;
+        languageSpell2 = SPELL_LEARN_LANGUAGE_PANDAREN_ALLIANCE;
+        triggerSpell = SPELL_TRIGGER_FACTION_CHOICE_ALLIANCE;
+        break;
+    case JOIN_HORDE:
+        newRace = RACE_PANDAREN_HORDE;
+        languageSpell1 = SPELL_LEARN_LANGUAGE_ORCISH;
+        languageSpell2 = SPELL_LEARN_LANGUAGE_PANDAREN_HORDE;
+        triggerSpell = SPELL_TRIGGER_FACTION_CHOICE_HORDE;
+        break;
+    default:
+        break;
+    }
+
+    _player->SetRace(newRace);
+    _player->SetFactionForRace(newRace);
+    _player->SaveToDB();
+    _player->LearnSpell(languageSpell1, false);
+    _player->LearnSpell(languageSpell2, false);
+    _player->CastSpell(_player, triggerSpell, true);
+
+    // Force client to refresh all reputation factions or sides
+    uint32 headerFactionId = (newRace == RACE_PANDAREN_ALLIANCE) ? 469 : 67;
+
+    for (FactionEntry const* fe : sFactionStore)
+    {
+        if (!fe->CanHaveReputation())
+            continue;
+
+        if (fe->ParentFactionID != headerFactionId)
+            continue;
+
+        _player->GetReputationMgr().SetVisible(fe);
+
+        int32 base = fe->ReputationBase[0];
+
+        // Apply the base reputation
+        _player->GetReputationMgr().SetOneFactionReputation(fe, base, false);
+
+        // Get the updated state
+        FactionState* fs = const_cast<FactionState*>(_player->GetReputationMgr().GetState(fe));
+        if (!fs)
+            continue;
+
+        // Mark for sending
+        fs->needSend = true;
+
+        // Trigger the system messages
+        fs->VisualStandingIncrease = base;
+
+        // Send the update
+        _player->GetReputationMgr().SendState(fs);
+    }
+
+    const char* sideName = (selectFaction.FactionChoice == 0) ? "Horde" : "Alliance";
+    TC_LOG_INFO("entities.player", "HandleSelectFactionOpcode: Player {} (GUID: {}) successfully joined {}",
+        _player->GetName(), _player->GetGUID().ToString(), sideName);
+
+    // Send success result to client
+    WorldPackets::Character::NeutralPlayerFactionSelectResult result;
+    result.Success = true;
+    result.NewRaceID = newRace;
+    _player->GetSession()->SendPacket(result.Write());
 }
 
 void WorldSession::HandleOverrideScreenFlash(WorldPackets::Misc::OverrideScreenFlash& overrideScreenFlash)
@@ -1308,38 +1463,55 @@ void WorldSession::HandleShowTradeSkill(WorldPackets::Misc::ShowTradeSkill& pack
     _player->SendDirectMessage(response.Write());
 }
 
-void WorldSession::HandleSelectFactionOpcode(WorldPackets::Misc::FactionSelect& selectFaction)
-{
-    enum FactionSelection
-    {
-        JOIN_HORDE = 0,
-        JOIN_ALLIANCE = 1
-    };
-
-    if (_player->GetRace() != RACE_PANDAREN_NEUTRAL)
-        return;
-
-    if (selectFaction.FactionChoice == JOIN_ALLIANCE)
-    {
-        _player->SetRace(RACE_PANDAREN_ALLIANCE);
-        _player->SetFactionForRace(RACE_PANDAREN_ALLIANCE);
-        _player->SaveToDB();
-        _player->LearnSpell(668, false);            // Language Common
-        _player->LearnSpell(108130, false);         // Language Pandaren Alliance
-        _player->CastSpell(_player, 113244, true);  // Faction Choice Trigger Spell: Alliance
-    }
-    else if (selectFaction.FactionChoice == JOIN_HORDE)
-    {
-        _player->SetRace(RACE_PANDAREN_HORDE);
-        _player->SetFactionForRace(RACE_PANDAREN_HORDE);
-        _player->SaveToDB();
-        _player->LearnSpell(669, false);            // Language Orcish
-        _player->LearnSpell(108131, false);         // Language Pandaren Horde
-        _player->CastSpell(_player, 113245, true);  // Faction Choice Trigger Spell: Horde
-    }
-}
-
 void WorldSession::HandleActivateSoulbind(WorldPackets::Misc::ActivateSoulbind& /*packet*/)
 {
     // Need IMP
+}
+
+void WorldSession::HandleChromieTimeSelectExpansion(WorldPackets::Misc::ChromieTimeSelectExpansion& chromieTimeSelectExpansion)
+{
+    Player* player = GetPlayer();
+    if (!player)
+        return;
+
+    // Wire format (12.0.5): PackedGuid Vendor + int32 ExpansionID, where ExpansionID is the
+    // UIChromieTimeExpansionInfo.ID (DB2 record id), not the Expansions enum.
+    // Verify the vendor is a gossip NPC the player is actually interacting with.
+    Creature const* vendor = player->GetNPCIfCanInteractWith(chromieTimeSelectExpansion.Vendor, UNIT_NPC_FLAG_GOSSIP, UNIT_NPC_FLAG_2_NONE);
+    if (!vendor)
+        return;
+
+    int32 expansionId = chromieTimeSelectExpansion.ExpansionID;
+
+    // Blizzlike: only available for levels 10-70 (below max level).
+    if (player->GetLevel() < 10 || player->IsMaxLevel())
+        return;
+
+    // 0 = "Return to the present"; clear without store lookup.
+    if (expansionId == 0)
+    {
+        player->SetChromieTime(0);
+        player->SendDirectMessage(WorldPackets::Misc::ChromieTimeSelectExpansionSuccess().Write());
+        return;
+    }
+
+    UIChromieTimeExpansionInfoEntry const* entry = sUIChromieTimeExpansionInfoStore.LookupEntry(uint32(expansionId));
+    if (!entry)
+        return;
+
+    if (entry->ShowPlayerConditionID && !ConditionMgr::IsPlayerMeetingCondition(player, entry->ShowPlayerConditionID))
+        return;
+
+    player->SetChromieTime(expansionId);
+
+    player->SendDirectMessage(WorldPackets::Misc::ChromieTimeSelectExpansionSuccess().Write());
+}
+
+void WorldSession::HandleRequestStoreFrontInfoUpdate(WorldPackets::Misc::RequestStoreFrontInfoUpdate& packet)
+{
+    WorldPackets::Misc::AccountStoreFrontUpdate response;
+    response.StoreFrontID = packet.StoreFrontID;
+    response.Result = 0;  // Success
+    response.Unknown = 0;
+    SendPacket(response.Write());
 }

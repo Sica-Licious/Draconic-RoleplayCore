@@ -755,11 +755,11 @@ bool EmblemInfo::ValidateEmblemColors(uint32 /*style*/, uint32 color, uint32 /*b
 
 bool EmblemInfo::LoadFromDB(Field* fields)
 {
-    m_style             = fields[3].GetUInt8();
-    m_color             = fields[4].GetUInt8();
-    m_borderStyle       = fields[5].GetUInt8();
-    m_borderColor       = fields[6].GetUInt8();
-    m_backgroundColor   = fields[7].GetUInt8();
+    m_style             = fields[4].GetUInt8();
+    m_color             = fields[5].GetUInt8();
+    m_borderStyle       = fields[6].GetUInt8();
+    m_borderColor       = fields[7].GetUInt8();
+    m_backgroundColor   = fields[8].GetUInt8();
 
     return ValidateEmblemColors();
 }
@@ -1121,6 +1121,7 @@ InventoryResult Guild::BankMoveItemData::CanStore(Item* pItem, bool swap)
 Guild::Guild():
     m_id(UI64LIT(0)),
     m_leaderGuid(),
+    m_flags(0),
     m_createdDate(0),
     m_accountsNumber(0),
     m_bankMoney(0),
@@ -1148,6 +1149,7 @@ bool Guild::Create(Player* pLeader, std::string_view name)
     m_id = sGuildMgr->GenerateGuildId();
     m_leaderGuid = pLeader->GetGUID();
     m_name = name;
+    m_flags = 0;
     m_info = "";
     m_motd = "No message set.";
     m_bankMoney = 0;
@@ -1167,6 +1169,7 @@ bool Guild::Create(Player* pLeader, std::string_view name)
     stmt->setUInt64(  index, m_id);
     stmt->setString(++index, m_name);
     stmt->setUInt64(++index, m_leaderGuid.GetCounter());
+    stmt->setUInt32(++index, m_flags);
     stmt->setString(++index, m_info);
     stmt->setString(++index, m_motd);
     stmt->setUInt64(++index, uint32(m_createdDate));
@@ -1335,7 +1338,7 @@ void Guild::HandleRoster(WorldSession* session)
     roster.NumAccounts = int32(m_accountsNumber);
     roster.CreateDate.SetUtcTimeFromUnixTime(m_createdDate);
     roster.CreateDate += session->GetTimezoneOffset();
-    roster.GuildFlags = 0;
+    roster.GuildFlags = m_flags;
 
     roster.MemberData.reserve(m_members.size());
 
@@ -1376,7 +1379,7 @@ void Guild::HandleRoster(WorldSession* session)
     session->SendPacket(roster.Write());
 }
 
-void Guild::SendQueryResponse(WorldSession* session)
+void Guild::HandleQuery(WorldSession* session)
 {
     WorldPackets::Guild::QueryGuildInfoResponse response;
     response.GuildGuid = GetGUID();
@@ -1524,7 +1527,7 @@ void Guild::HandleSetEmblem(WorldSession* session, EmblemInfo const& emblemInfo)
 
         SendSaveEmblemResult(session, ERR_GUILDEMBLEM_SUCCESS); // "Guild Emblem saved."
 
-        SendQueryResponse(session);
+        HandleQuery(session);
     }
 }
 
@@ -2496,6 +2499,7 @@ bool Guild::LoadFromDB(Field* fields)
     m_id            = fields[0].GetUInt64();
     m_name          = fields[1].GetString();
     m_leaderGuid    = ObjectGuid::Create<HighGuid::Player>(fields[2].GetUInt64());
+    m_flags         = fields[3].GetUInt32();
 
     if (!m_emblemInfo.LoadFromDB(fields))
     {
@@ -2504,12 +2508,12 @@ bool Guild::LoadFromDB(Field* fields)
         return false;
     }
 
-    m_info          = fields[8].GetString();
-    m_motd          = fields[9].GetString();
-    m_createdDate   = time_t(fields[10].GetUInt32());
-    m_bankMoney     = fields[11].GetUInt64();
+    m_info          = fields[9].GetString();
+    m_motd          = fields[10].GetString();
+    m_createdDate   = time_t(fields[11].GetUInt32());
+    m_bankMoney     = fields[12].GetUInt64();
 
-    uint8 purchasedTabs = uint8(fields[12].GetUInt64());
+    uint8 purchasedTabs = uint8(fields[13].GetUInt64());
     if (purchasedTabs > GUILD_BANK_MAX_TABS)
         purchasedTabs = GUILD_BANK_MAX_TABS;
 
@@ -3814,4 +3818,21 @@ void Guild::HandleNewsSetSticky(WorldSession* session, uint32 newsId, bool stick
     itr->WritePacket(newsPacket);
     newsPacket.NewsEvents.back().CompletedDate += session->GetTimezoneOffset();
     session->SendPacket(newsPacket.Write());
+}
+
+void Guild::SetRename(bool apply)
+{
+    if (apply)
+        m_flags |= GUILD_FLAG_RENAME;
+    else
+        m_flags &= ~GUILD_FLAG_RENAME;
+
+    CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_GUILD_FLAGS);
+    stmt->setUInt32(0, m_flags);
+    stmt->setUInt64(1, m_id);
+    CharacterDatabase.Execute(stmt);
+
+    WorldPackets::Guild::GuildFlaggedForRename flagged;
+    flagged.FlagSet = apply;
+    BroadcastPacket(flagged.Write());
 }

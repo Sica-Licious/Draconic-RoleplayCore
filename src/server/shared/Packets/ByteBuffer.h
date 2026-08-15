@@ -22,6 +22,7 @@
 #include "Concepts.h"
 #include "Define.h"
 #include <array>
+#include <span>
 #include <string>
 #include <vector>
 #include <cstring>
@@ -562,6 +563,17 @@ class TC_SHARED_API ByteBuffer
 
         std::string_view ReadString(uint32 length, bool requireValidUtf8 = true);
 
+        std::span<uint8> ReadBytes(size_t length)
+        {
+            if (_rpos + length > _storage.size())
+                OnInvalidPosition(_rpos, length);
+
+            ResetBitPos();
+            uint8* data = _storage.data() + _rpos;
+            _rpos += length;
+            return { data, length };
+        }
+
         uint8* data() { return _storage.data(); }
         uint8 const* data() const { return _storage.data(); }
 
@@ -619,9 +631,9 @@ class TC_SHARED_API ByteBuffer
 
         void hexlike() const;
 
-    protected:
         [[noreturn]] void OnInvalidPosition(size_t pos, size_t valueSize) const;
 
+    protected:
         size_t _rpos, _wpos;
         uint8 _bitpos;
         uint8 _curbitval;

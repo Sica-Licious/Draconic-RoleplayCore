@@ -77,6 +77,7 @@ namespace WorldPackets
             bool SuggestionsEnabled = false;
 
             SavedThrottleObjectState ThrottleState;
+            SavedThrottleObjectState ExpensiveThrottleState;
         };
 
         struct SquelchInfo
@@ -84,6 +85,13 @@ namespace WorldPackets
             bool IsSquelched = false;
             ObjectGuid BnetAccountGuid;
             ObjectGuid GuildGuid;
+        };
+
+        struct GameModeData
+        {
+            uint8 GameMode = 0;
+            int32 ContentSetID = 0;
+            int32 GameModeRecordID = 0;
         };
 
         struct GameRuleValuePair
@@ -127,7 +135,6 @@ namespace WorldPackets
             int32 CfgRealmRecID                          = 0;
             uint32 CommercePricePollTimeSeconds          = 0;
             int64 RedeemForBalanceAmount                 = 0;
-            uint32 BpayStorePurchaseTimeout              = 0;
             uint32 ClubsPresenceDelay                    = 0;
             uint32 ClubPresenceUnsubscribeDelay          = 0; ///< Timer for updating club presence when communities ui frame is hidden
             uint32 KioskSessionDurationMinutes           = 0;
@@ -137,7 +144,6 @@ namespace WorldPackets
             Duration<Seconds, uint32> NotFoundCacheTimeSeconds = 10s;
             bool ItemRestorationButtonEnabled        = false;
             bool CharUndeleteEnabled                 = false; ///< Implemented
-            bool BpayStoreDisabledByParentalControls = false;
             bool CommerceServerEnabled               = false;
             bool VeteranTokenRedeemWillKick          = false;
             bool WorldTokenRedeemWillKick            = false;
@@ -145,7 +151,7 @@ namespace WorldPackets
             bool TutorialEnabled                     = false;
             bool NPETutorialsEnabled                 = false;
             bool KioskModeEnabled                    = false;
-            bool CompetitiveModeEnabled              = false;
+            bool CompetitiveModeEnabled              = true;
             bool RedeemForBalanceAvailable           = false;
             bool WarModeEnabled                      = true;
             bool CommunitiesEnabled                  = false;
@@ -165,23 +171,25 @@ namespace WorldPackets
             bool LfgRequireAuthenticatorEnabled      = false;
             bool ScriptsDisallowedForBeta            = false;
             bool TimerunningEnabled                  = false;
-            bool WarGamesEnabled                     = false; // classic only
+            bool PlayerIdentityOptionsEnabled                     = false; // classic only
             bool IsPlayerContentTrackingEnabled      = false;
-            bool SellAllJunkEnabled                  = false;
-            bool GroupFinderEnabled                  = true;  // classic only
-            bool IsPremadeGroupEnabled               = true;  // classic only
+            bool LfdEnabled                  = false;
+            bool LfrEnabled                  = true;  // classic only
+            bool PetHappinessEnabled               = true;  // classic only
             bool GuildEventsEditsEnabled             = true;
             bool GuildTradeSkillsEnabled             = true;
-            bool BNSendWhisperUseV2Services          = true;  ///< BNSendWhisper will send to v2.WhisperService instead of v1.NotificationService
-            bool BNSendGameDataUseV2Services         = true;  ///< BNSendGameData will send to v2.NotificationService instead of v1.NotificationService
             bool IsAccountCurrencyTransferEnabled    = false;
+            bool NetEaseChatTelemetryEnabled         = false;
             bool LobbyMatchmakerQueueFromMainlineEnabled = false;
             bool CanSendLobbyMatchmakerPartyCustomizations = false;
-            bool AddonProfilerEnabled                = false;
+            bool AddonProfilingEnabled                = false;
+            bool GlobalUserGeneratedContentMuteEnabled = false;
+            bool AccountUserGeneratedContentIsRisky   = false;
 
             SocialQueueConfig QuickJoinConfig;
             SquelchInfo Squelch;
             RafSystemFeatureInfo RAFSystem;
+            std::vector<GameModeData> DisabledGameModes;
             std::vector<GameRuleValuePair> GameRules;
             int32 ActiveTimerunningSeasonID          = 0;
             int32 RemainingTimerunningSeasonSeconds  = 0;
@@ -212,44 +220,47 @@ namespace WorldPackets
             bool BpayStoreDisabledByParentalControls = false; // NYI
             bool CharUndeleteEnabled                 = false;
             bool CommerceServerEnabled               = false; // NYI
+            bool PaidCharacterTransfersBetweenBnetAccountsEnabled = false;
             bool VeteranTokenRedeemWillKick          = false; // NYI
             bool WorldTokenRedeemWillKick            = false; // NYI
             bool ExpansionPreorderInStore            = false; // NYI
             bool KioskModeEnabled                    = false; // NYI
-            bool CompetitiveModeEnabled              = false; // NYI
-            bool BoostEnabled                        = false; // classic only
-            bool TrialBoostEnabled                   = false; // NYI
+            bool CompetitiveModeEnabled              = true; // NYI
+            bool BoostEnabled                        = true; // classic only
+            bool TrialBoostEnabled                   = true; // NYI
             bool RedeemForBalanceAvailable           = false; // NYI
-            bool PaidCharacterTransfersBetweenBnetAccountsEnabled = false;
             bool LiveRegionCharacterListEnabled      = false; // NYI
             bool LiveRegionCharacterCopyEnabled      = false; // NYI
             bool LiveRegionAccountCopyEnabled        = false; // NYI
             bool LiveRegionKeyBindingsCopyEnabled    = false;
             bool BrowserCrashReporterEnabled         = false; // NYI
             bool IsEmployeeAccount                   = false; // NYI
+            bool UseBleep                            = false; // NYI
             bool NameReservationOnly                 = false; // classic only
             bool TimerunningEnabled                  = false; // NYI
             bool ScriptsDisallowedForBeta            = false;
             bool PlayerIdentityOptionsEnabled        = false;
             bool AccountExportEnabled                = false;
             bool AccountLockedPostExport             = false;
-            bool BNSendWhisperUseV2Services          = true; ///< BNSendWhisper will send to v2.WhisperService instead of v1.NotificationService
-            bool BNSendGameDataUseV2Services         = true; ///< BNSendGameData will send to v2.NotificationService instead of v1.NotificationService
             bool CharacterSelectListModeRealmless    = false;
             bool WowTokenLimitedMode                 = false; // classic only
-            bool PandarenLevelBoostAllowed           = false; // classic only
+            bool NavBarEnabled                       = true;
+            bool GlobalUserGeneratedContentMuteEnabled = false;
+            bool AccountUserGeneratedContentIsRisky  = false;
             Optional<EuropaTicketConfig> EuropaTicketSystemStatus;
             std::vector<int32> LiveRegionCharacterCopySourceRegions;
             uint32 CommercePricePollTimeSeconds      = 0;     // NYI
             int64 RedeemForBalanceAmount             = 0;     // NYI
             int32 MaxCharactersOnThisRealm           = 0;
-            int32 ActiveBoostType                    = 0;     // NYI
-            int32 TrialBoostType                     = 0;     // NYI
-            int32 MinimumExpansionLevel              = 0;
-            int32 MaximumExpansionLevel              = 0;
+            int32 ActiveBoostType                    = 11;     // NYI
+            int32 TrialBoostType                     = 11;     // NYI
+            int32 MinimumExpansionLevel              = 10;
+            int32 MaximumExpansionLevel              = 11;
             uint32 KioskSessionDurationMinutes       = 0;
             int32 ContentSetID                       = 0;     // Currently active Classic season
+            std::vector<GameModeData> DisabledGameModes;
             std::vector<GameRuleValuePair> GameRules;
+            std::vector<int32> AvailableGameModeIDs;
             int32 ActiveTimerunningSeasonID          = 0;
             int32 RemainingTimerunningSeasonSeconds  = 0;
             Duration<Seconds, int32> TimerunningConversionMinCharacterAge { 1_days };
@@ -282,6 +293,16 @@ namespace WorldPackets
             WorldPacket const* Write() override;
 
             std::span<MirrorVarSingle> Variables;
+        };
+
+        class MOTD final : public ServerPacket
+        {
+        public:
+            MOTD() : ServerPacket(SMSG_MOTD) { }
+
+            WorldPacket const* Write() override;
+
+            std::vector<std::string> const* Text = nullptr;
         };
 
         class SetTimeZoneInformation final : public ServerPacket

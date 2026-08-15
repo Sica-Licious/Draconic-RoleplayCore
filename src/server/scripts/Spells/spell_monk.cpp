@@ -186,7 +186,7 @@ class spell_monk_burst_of_life : public AuraScript
     void AfterRemove(AuraEffect const* aurEff, AuraEffectHandleModes /*mode*/) const
     {
         AuraRemoveMode removeMode = GetTargetApplication()->GetRemoveMode();
-        if (removeMode != AURA_REMOVE_BY_EXPIRE && (removeMode != AURA_REMOVE_BY_ENEMY_SPELL || aurEff->GetAmount()))
+        if (removeMode != AURA_REMOVE_BY_EXPIRE && (removeMode != AURA_REMOVE_BY_ENEMY_SPELL || aurEff->GetAmountAsInt()))
             return;
 
         Unit* caster = GetCaster();
@@ -199,7 +199,7 @@ class spell_monk_burst_of_life : public AuraScript
 
         caster->CastSpell(GetTarget(), SPELL_MONK_BURST_OF_LIFE_HEAL, CastSpellExtraArgsInit{
             .TriggerFlags = TRIGGERED_IGNORE_CAST_IN_PROGRESS | TRIGGERED_DONT_REPORT_CAST_ERROR,
-            .SpellValueOverrides = { { SPELLVALUE_MAX_TARGETS, burstOfLife->GetAmount() } }
+            .SpellValueOverrides = { { SPELLVALUE_MAX_TARGETS, burstOfLife->GetAmountAsInt() } }
         });
     }
 
@@ -324,7 +324,7 @@ class spell_monk_life_cocoon : public SpellScript
 
     void CalculateAbsorb(SpellEffIndex /*effIndex*/)
     {
-        int32 absorb = GetCaster()->CountPctFromMaxHealth(GetEffectValue());
+        SpellEffectValue absorb = GetCaster()->CountPctFromMaxHealth(GetEffectValue());
         if (Player* player = GetCaster()->ToPlayer())
             AddPct(absorb, player->GetRatingBonusValue(CR_VERSATILITY_HEALING_DONE));
 
@@ -386,7 +386,7 @@ class spell_monk_open_palm_strikes : public AuraScript
     bool CheckProc(AuraEffect const* /*aurEff*/, ProcEventInfo& /*procInfo*/)
     {
         AuraEffect const* talent = GetTarget()->GetAuraEffect(SPELL_MONK_OPEN_PALM_STRIKES_TALENT, EFFECT_1);
-        return talent && roll_chance_i(talent->GetAmount());
+        return talent && roll_chance(talent->GetAmount());
     }
 
     void Register() override
@@ -551,7 +551,7 @@ class spell_monk_roll : public SpellScript
     void HandleDummy(SpellEffIndex /*effIndex*/)
     {
         GetCaster()->CastSpell(GetCaster(), GetCaster()->HasUnitMovementFlag(MOVEMENTFLAG_BACKWARD) ? SPELL_MONK_ROLL_BACKWARD : SPELL_MONK_ROLL_FORWARD,
-            TRIGGERED_IGNORE_CAST_IN_PROGRESS);
+            true);
         GetCaster()->CastSpell(GetCaster(), SPELL_MONK_NO_FEATHER_FALL, true);
     }
 
@@ -566,14 +566,14 @@ class spell_monk_roll : public SpellScript
 // 109131 - Roll (backward)
 class spell_monk_roll_aura : public AuraScript
 {
-    void CalcMovementAmount(AuraEffect const* /*aurEff*/, int32& amount, bool& /*canBeRecalculated*/)
+    void CalcMovementAmount(AuraEffect const* /*aurEff*/, SpellEffectValue& amount, bool& /*canBeRecalculated*/)
     {
-        amount += 100;
+        amount += 100.0;
     }
 
-    void CalcImmunityAmount(AuraEffect const* /*aurEff*/, int32& amount, bool& /*canBeRecalculated*/)
+    void CalcImmunityAmount(AuraEffect const* /*aurEff*/, SpellEffectValue& amount, bool& /*canBeRecalculated*/)
     {
-        amount -= 100;
+        amount -= 100.0;
     }
 
     void ChangeRunBackSpeed(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
@@ -697,7 +697,7 @@ class spell_monk_stagger : public AuraScript
         if (!effect)
             return;
 
-        Absorb(dmgInfo, float(effect->GetAmount()) / 100.0f);
+        Absorb(dmgInfo, effect->GetAmount() / 100.0);
     }
 
     void Absorb(DamageInfo& dmgInfo, float multiplier)
@@ -740,7 +740,7 @@ class spell_monk_stagger : public AuraScript
     }
 
 private:
-    void AddAndRefreshStagger(float amount)
+    void AddAndRefreshStagger(float amount) const
     {
         Unit* target = GetTarget();
         if (Aura* auraStagger = FindExistingStaggerEffect(target))
@@ -749,7 +749,7 @@ private:
             if (!effStaggerRemaining)
                 return;
 
-            float newAmount = effStaggerRemaining->GetAmount() + amount;
+            SpellEffectValue newAmount = effStaggerRemaining->GetAmount() + amount;
             uint32 spellId = GetStaggerSpellId(target, newAmount);
             if (spellId == effStaggerRemaining->GetSpellInfo()->Id)
             {
@@ -767,18 +767,18 @@ private:
             AddNewStagger(target, GetStaggerSpellId(target, amount), amount);
     }
 
-    uint32 GetStaggerSpellId(Unit* unit, float amount)
+    static uint32 GetStaggerSpellId(Unit const* unit, SpellEffectValue amount)
     {
-        const float StaggerHeavy = 0.6f;
-        const float StaggerModerate = 0.3f;
+        constexpr double StaggerHeavy = 0.6;
+        constexpr double StaggerModerate = 0.3;
 
-        float staggerPct = amount / float(unit->GetMaxHealth());
+        double staggerPct = amount / SpellEffectValue(unit->GetMaxHealth());
         return (staggerPct >= StaggerHeavy) ? SPELL_MONK_STAGGER_HEAVY :
             (staggerPct >= StaggerModerate) ? SPELL_MONK_STAGGER_MODERATE :
             SPELL_MONK_STAGGER_LIGHT;
     }
 
-    void AddNewStagger(Unit* unit, uint32 staggerSpellId, float staggerAmount)
+    static void AddNewStagger(Unit* unit, uint32 staggerSpellId, SpellEffectValue staggerAmount)
     {
         // We only set the total stagger amount. The amount per tick will be set by the stagger spell script
         unit->CastSpell(unit, staggerSpellId, CastSpellExtraArgs(SPELLVALUE_BASE_POINT1, staggerAmount).SetTriggerFlags(TRIGGERED_FULL_MASK));
@@ -798,11 +798,11 @@ class spell_monk_stagger_damage_aura : public AuraScript
         // Update our light/medium/heavy stagger with the correct stagger amount left
         if (Aura* auraStagger = FindExistingStaggerEffect(GetTarget()))
         {
-            if (AuraEffect* auraEff = auraStagger->GetEffect(AuraStaggerEffectTotal))
+            if (AuraEffect* totalEffect = auraStagger->GetEffect(AuraStaggerEffectTotal))
             {
-                float total = float(auraEff->GetAmount());
-                float tickDamage = float(aurEff->GetAmount());
-                auraEff->ChangeAmount(total - tickDamage);
+                SpellEffectValue total = totalEffect->GetAmount();
+                SpellEffectValue tickDamage = aurEff->GetAmount();
+                totalEffect->ChangeAmount(total - tickDamage);
             }
         }
     }
@@ -831,8 +831,8 @@ class spell_monk_stagger_debuff_aura : public AuraScript
     void OnReapply(AuraEffect const* aurEff, AuraEffectHandleModes /*mode*/)
     {
         // Calculate damage per tick
-        float total = float(aurEff->GetAmount());
-        float perTick = total * _period / float(GetDuration()); // should be same as GetMaxDuration() TODO: verify
+        SpellEffectValue total = aurEff->GetAmount();
+        SpellEffectValue perTick = total * _period / float(GetDuration()); // should be same as GetMaxDuration() TODO: verify
 
         // Set amount on effect for tooltip
         AuraEffect* effInfo = GetAura()->GetEffect(AuraStaggerEffectTick);
@@ -861,7 +861,7 @@ class spell_monk_stagger_debuff_aura : public AuraScript
 private:
     float _period = 0.0f;
 
-    void CastOrChangeTickDamage(float tickDamage)
+    void CastOrChangeTickDamage(SpellEffectValue tickDamage)
     {
         Unit* unit = GetTarget();
         Aura* auraDamage = unit->GetAura(SPELL_MONK_STAGGER_DAMAGE_AURA);
@@ -1040,7 +1040,7 @@ public:
             return GetCaster() && GetCaster()->GetTypeId() == TYPEID_PLAYER;
         }
 
-        void CalculateAmount(AuraEffect const* /*aurEff*/, int32& amount, bool& /*canBeRecalculated*/)
+        void CalculateAmount(AuraEffect const* /*aurEff*/, SpellEffectValue& amount, bool& /*canBeRecalculated*/)
         {
             if (!GetCaster())
                 return;
@@ -1263,7 +1263,7 @@ public:
             return GetUnitOwner()->ToPlayer();
         }
 
-        void CalculateAmount(AuraEffect const* /*auraEffect*/, int32& amount, bool& /*canBeRecalculated*/)
+        void CalculateAmount(AuraEffect const* /*auraEffect*/, SpellEffectValue& amount, bool& /*canBeRecalculated*/)
         {
             amount = -1;
         }
@@ -1932,37 +1932,36 @@ public:
                 }
                 if (Unit* target = GetTarget())
                 {
+                    Creature* statue = nullptr;
+
                     std::list<Unit*> playerList;
                     std::list<Creature*> tempList;
-                    std::list<Creature*> statueList;
-                    Creature* statue;
+
                     player->GetPartyMembers(playerList);
+
                     if (playerList.size() > 1)
                     {
                         playerList.remove(target);
                         playerList.sort(Trinity::HealthPctOrderPred());
                         playerList.resize(1);
                     }
+
                     player->GetCreatureListWithEntryInGrid(tempList, 60849, 100.0f);
-                    player->GetCreatureListWithEntryInGrid(statueList, 60849, 100.0f);
-                    for (std::list<Creature*>::iterator i = tempList.begin(); i != tempList.end(); ++i)
+                    for (Creature* tempCreature : tempList)
                     {
-                        Unit* owner = (*i)->GetOwner();
-                        if (owner && owner == player && (*i)->IsSummon())
-                            continue;
-                        statueList.remove((*i));
+                        Unit* owner = tempCreature->GetOwner();
+                        if (owner && owner == player && tempCreature->IsSummon())
+                        {
+                            statue = tempCreature;
+                            break;
+                        }
                     }
+
                     for (auto itr : playerList)
                     {
-                        if (statueList.size() == 1)
+                        if (statue)
                         {
-                            for (auto itrBis : statueList)
-                                statue = itrBis;
-                            if (statue->GetOwner() && statue->GetOwner()->GetGUID() == player->GetGUID())
-                            {
-                                if (statue->GetOwner() && statue->GetOwner()->GetGUID() == player->GetGUID())
-                                    statue->CastSpell(statue->GetOwner()->ToPlayer()->GetSelectedUnit(), SPELL_SERPENT_STATUE_SOOTHING_MIST, false);
-                            }
+                            statue->CastSpell(itr, SPELL_SERPENT_STATUE_SOOTHING_MIST, false);
                         }
                     }
                 }
@@ -1974,7 +1973,7 @@ public:
             if (Unit* caster = GetCaster())
                 if (GetTarget())
                     // 25% to give 1 chi per tick
-                    if (roll_chance_i(25))
+                    if (roll_chance(25))
                         caster->CastSpell(caster, SPELL_MONK_SOOTHING_MIST_ENERGIZE, true);
         }
 
@@ -2119,7 +2118,7 @@ class spell_monk_renewing_mist_hot : public AuraScript
             caster->CastSpell(GetTarget(), SPELL_MONK_RENEWING_MIST_JUMP, true);
     }
 
-    void CalcAmount(AuraEffect const* /*aurEff*/, int32& amount, bool& /*canBeRecalculated*/)
+    void CalcAmount(AuraEffect const* /*aurEff*/, SpellEffectValue& amount, bool& /*canBeRecalculated*/)
     {
         Unit* caster = GetCaster();
         if (Aura* counteractAura = caster->GetAura(SPELL_MONK_COUNTERACT_MAGIC))
@@ -2297,23 +2296,25 @@ class spell_monk_mana_tea : public SpellScript
     SpellModifier* mod = nullptr;
     void HandleBeforeCast()
     {
-        if (Player* _player = GetCaster()->ToPlayer())
+        //Need Rework
+
+        /*if (Player* _player = GetCaster()->ToPlayer())
         {
             int32 stacks = 0;
             if (Aura* manaTeaStacks = _player->GetAura(SPELL_MONK_MANA_TEA_STACKS))
             {
                 stacks = manaTeaStacks->GetStackAmount();
                 int32 newDuration = stacks * IN_MILLISECONDS;
-                SpellModifierByClassMask* mod = new SpellModifierByClassMask(manaTeaStacks);
+                SpellPctModifierByClassMask* mod = new SpellPctModifierByClassMask(manaTeaStacks);
                 mod->op = SpellModOp::Duration;
                 mod->type = SPELLMOD_FLAT;
                 mod->spellId = SPELL_MONK_MANA_TEA_REGEN;
-                static_cast<SpellModifierByClassMask*>(mod)->value = newDuration;
+                static_cast<SpellPctModifierByClassMask*>(mod)->value = newDuration;
                 mod->mask[1] = 0x200000;
                 mod->mask[2] = 0x1;
                 _player->AddSpellMod(mod, true);
             }
-        }
+        }*/
     }
 
     void HandleAfterCast()
@@ -2473,7 +2474,7 @@ public:
 
     class spell_monk_touch_of_karma_AuraScript : public AuraScript
     {
-        void CalculateAmount(const AuraEffect* aurEff, int32& amount, bool& /*canBeRecalculated*/)
+        void CalculateAmount(const AuraEffect* aurEff, SpellEffectValue& amount, bool& /*canBeRecalculated*/)
         {
             if (Unit* caster = GetCaster())
                 if (int32 effInfo = GetAura()->GetSpellInfo()->GetEffect(EFFECT_2).CalcValue())
@@ -2491,7 +2492,7 @@ public:
             for (AuraApplication* aurApp : caster->GetTargetAuraApplications(SPELL_MONK_TOUCH_OF_KARMA))
                 if (aurApp->GetTarget() != caster)
                 {
-                    int32 periodicDamage = int32(dmgInfo.GetDamage() / sSpellMgr->GetSpellInfo(SPELL_MONK_TOUCH_OF_KARMA_DAMAGE, DIFFICULTY_NONE)->GetMaxTicks());
+                    int32 periodicDamage = int32(dmgInfo.GetDamage() / sSpellMgr->GetSpellInfo(SPELL_MONK_TOUCH_OF_KARMA_DAMAGE, DIFFICULTY_NONE)->GetEffect(EFFECT_0).GetPeriodicTickCount());
                     caster->CastSpell(aurApp->GetTarget(), SPELL_MONK_TOUCH_OF_KARMA_DAMAGE, CastSpellExtraArgs(TRIGGERED_FULL_MASK).AddSpellBP0(periodicDamage).SetTriggeringAura(aurEff));
                     if (caster->HasAura(SPELL_GOOD_KARMA_TALENT))
                     {

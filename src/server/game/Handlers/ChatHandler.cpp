@@ -42,7 +42,6 @@
 #ifdef ELUNA
 #include "LuaEngine.h"
 #endif
-#include "Warden.h"
 #include "World.h"
 #include <algorithm>
 
@@ -384,8 +383,7 @@ ChatMessageResult WorldSession::HandleChatMessage(ChatMsg type, Language lang, s
                     return ChatMessageResult::NotInGroup;
             }
 
-            if (group->IsLeader(GetPlayer()->GetGUID()))
-                type = CHAT_MSG_PARTY_LEADER;
+            type = group->IsLeader(sender->GetGUID()) ? CHAT_MSG_PARTY_LEADER : CHAT_MSG_PARTY;
 
             sScriptMgr->OnPlayerChat(GetPlayer(), type, lang, msg, group);
 
@@ -573,13 +571,6 @@ void WorldSession::HandleChatAddonMessage(ChatMsg type, std::string prefix, std:
 
     if (prefix.empty() || prefix.length() > 16)
         return;
-
-    // Our Warden module also uses SendAddonMessage as a way to communicate Lua check results to the server, see if this is that
-    if (type == CHAT_MSG_GUILD)
-    {
-        if (_warden && _warden->ProcessLuaCheckResponse(text))
-            return;
-    }
 
     // Disabled addon channel?
     if (!sWorld->getBoolConfig(CONFIG_ADDON_CHANNEL))
@@ -797,7 +788,7 @@ void WorldSession::HandleTextEmoteOpcode(WorldPackets::Chat::CTextEmote& packet)
         return;
     }
 
-    sScriptMgr->OnPlayerTextEmote(_player, packet.SoundIndex, packet.EmoteID, packet.Target);
+    sScriptMgr->OnPlayerTextEmote(_player, packet.EmoteID, packet.SoundIndex, packet.Target);
 
     EmotesTextEntry const* em = sEmotesTextStore.LookupEntry(packet.EmoteID);
     if (!em)
@@ -814,6 +805,7 @@ void WorldSession::HandleTextEmoteOpcode(WorldPackets::Chat::CTextEmote& packet)
             break;
         case EMOTE_STATE_DANCE:
         case EMOTE_STATE_READ:
+        case EMOTE_STATE_LEAN:
             _player->SetEmoteState(emote);
             break;
         default:
@@ -837,9 +829,8 @@ void WorldSession::HandleTextEmoteOpcode(WorldPackets::Chat::CTextEmote& packet)
     _player->UpdateCriteria(CriteriaType::DoEmote, packet.EmoteID, 0, 0, unit);
 
     // Send scripted event call
-    if (unit)
-        if (Creature* creature = unit->ToCreature())
-            creature->AI()->ReceiveEmote(_player, packet.EmoteID);
+    if (Creature* creature = Object::ToCreature(unit))
+        creature->AI()->ReceiveEmote(_player, packet.EmoteID);
 
     if (emote != EMOTE_ONESHOT_NONE)
         _player->RemoveAurasWithInterruptFlags(SpellAuraInterruptFlags::Anim);

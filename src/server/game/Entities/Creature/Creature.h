@@ -167,10 +167,10 @@ class TC_GAME_API Creature : public Unit, public GridObject<Creature>, public Ma
         bool CanOnlySwimIfTargetSwims() const { return _staticFlags.HasFlag(CREATURE_STATIC_FLAG_4_AI_WILL_ONLY_SWIM_IF_TARGET_SWIMS); }
 
         bool CanSwim() const override;
-        bool CanEnterWater() const override { return (CanSwim() || IsAmphibious()); };
+        bool CanEnterWater() const override { return (CanSwim() || IsAmphibious()); }
         bool CanFly()  const override { return (IsFlying() || HasUnitMovementFlag(MOVEMENTFLAG_CAN_FLY)); }
 
-        MovementGeneratorType GetDefaultMovementType() const override { return m_defaultMovementType; }
+        MovementGeneratorType GetDefaultMovementType() const override;
         void SetDefaultMovementType(MovementGeneratorType mgt) { m_defaultMovementType = mgt; }
 
         CreatureClassifications GetCreatureClassification() const { return GetCreatureTemplate()->Classification; }
@@ -212,16 +212,21 @@ class TC_GAME_API Creature : public Unit, public GridObject<Creature>, public Ma
         void UpdateNearbyPlayersInteractions() override;
 
         bool HasScalableLevels() const;
+        uint32 GetContentTuningIdForTarget(WorldObject const* target) const;
         void ApplyLevelScaling();
+        void ApplyLevelScaling(int32 contentTuningId, int32 scalingLevelDelta);
         uint8 GetLevelForTarget(WorldObject const* target) const override;
 
         uint64 GetMaxHealthByLevel(uint8 level) const;
+        uint64 GetMaxHealthByLevel(uint8 level, uint32 contentTuningId) const;
         float GetHealthMultiplierForTarget(WorldObject const* target) const override;
 
         float GetBaseDamageForLevel(uint8 level) const;
+        float GetBaseDamageForLevel(uint8 level, uint32 contentTuningId) const;
         float GetDamageMultiplierForTarget(WorldObject const* target) const override;
 
         float GetBaseArmorForLevel(uint8 level) const;
+        float GetBaseArmorForLevel(uint8 level, uint32 contentTuningId) const;
         float GetArmorMultiplierForTarget(WorldObject const* target) const override;
 
         bool IsInEvadeMode() const { return HasUnitState(UNIT_STATE_EVADE); }
@@ -257,6 +262,7 @@ class TC_GAME_API Creature : public Unit, public GridObject<Creature>, public Ma
         void UpdateMaxHealth() override;
         void UpdateMaxPower(Powers power) override;
         uint32 GetPowerIndex(Powers power) const override;
+        ClassPowerTypes GetPowerTypes() const override;
         void UpdateAttackPowerAndDamage(bool ranged = false) override;
         void CalculateMinMaxDamage(WeaponAttackType attType, bool normalized, bool addTotalPct, float& minDamage, float& maxDamage) const override;
 
@@ -503,28 +509,27 @@ class TC_GAME_API Creature : public Unit, public GridObject<Creature>, public Ma
         UF::OptionalUpdateField<UF::VendorData, int32(WowCS::EntityFragment::FVendor_C), 0> m_vendorData;
 
     protected:
-        void BuildValuesCreate(ByteBuffer* data, UF::UpdateFieldFlag flags, Player const* target) const override;
-        void BuildValuesUpdate(ByteBuffer* data, UF::UpdateFieldFlag flags, Player const* target) const override;
+        void BuildValuesCreate(UF::UpdateFieldFlag flags, ByteBuffer& data, Player const* target) const override;
+        void BuildValuesUpdate(UF::UpdateFieldFlag flags, ByteBuffer& data, Player const* target) const override;
 
     public:
-        void BuildValuesUpdateWithFlag(ByteBuffer* data, UF::UpdateFieldFlag flags, Player const* target) const override;
+        void BuildValuesUpdateWithFlag(UF::UpdateFieldFlag flags, ByteBuffer& data, Player const* target) const override;
         void BuildValuesUpdateForPlayerWithMask(UpdateData* data, UF::ObjectData::Mask const& requestedObjectMask,
-            UF::UnitData::Mask const& requestedUnitMask, Player const* target) const;
+            UF::UnitData::Mask const& requestedUnitMask, Player const* target, bool ignoreNestedChangesMask) const;
 
         struct ValuesUpdateForPlayerWithMaskSender // sender compatible with MessageDistDeliverer
         {
-            explicit ValuesUpdateForPlayerWithMaskSender(Creature const* owner) : Owner(owner) { }
+            explicit ValuesUpdateForPlayerWithMaskSender(Creature const* owner) : Owner(owner), IgnoreNestedChangesMask(false) { }
 
             Creature const* Owner;
             UF::ObjectData::Base ObjectMask;
             UF::UnitData::Base UnitMask;
+            bool IgnoreNestedChangesMask;
 
             void operator()(Player const* player) const;
         };
 
     protected:
-        void ClearUpdateMask(bool remove) override;
-
         bool CreateFromProto(ObjectGuid::LowType guidlow, uint32 entry, CreatureData const* data = nullptr, uint32 vehId = 0);
         bool InitEntry(uint32 entry, CreatureData const* data = nullptr);
 
@@ -560,6 +565,8 @@ class TC_GAME_API Creature : public Unit, public GridObject<Creature>, public Ma
         uint32 m_cannotReachTimer;
 
         SpellSchoolMask m_meleeDamageSchoolMask;
+        uint32 m_baseAttackPower;
+        uint32 m_baseRangedAttackPower;
         uint32 m_originalEntry;
 
         Position m_homePosition;

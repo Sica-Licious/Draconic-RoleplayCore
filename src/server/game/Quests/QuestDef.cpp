@@ -32,7 +32,7 @@
 #include "WorldSession.h"
 
 #define QUEST_TEMPLATE_FIELDS (ID)(QuestType)(QuestPackageID)(ContentTuningID)(QuestSortID)(QuestInfoID)(SuggestedGroupNum)(RewardNextQuest)(RewardXPDifficulty)\
-    (RewardXPMultiplier)(RewardMoneyDifficulty)(RewardMoneyMultiplier)(RewardBonusMoney)(RewardSpell)(RewardHonor)(RewardKillHonor)(StartItem)\
+    (RewardXPMultiplier)(RewardMoneyDifficulty)(RewardMoneyMultiplier)(RewardBonusMoney)(RewardSpell)(RewardHonor)(RewardKillHonor)(RewardFavor)(StartItem)\
     (RewardArtifactXPDifficulty)(RewardArtifactXPMultiplier)(RewardArtifactCategoryID)(Flags)(FlagsEx)(FlagsEx2)(FlagsEx3)\
     (RewardItem1)(RewardAmount1)(ItemDrop1)(ItemDropQuantity1)(RewardItem2)(RewardAmount2)(ItemDrop2)(ItemDropQuantity2)\
     (RewardItem3)(RewardAmount3)(ItemDrop3)(ItemDropQuantity3)(RewardItem4)(RewardAmount4)(ItemDrop4)(ItemDropQuantity4)\
@@ -55,10 +55,6 @@ Quest::Quest(QueryResult const& questRecord) : Quest(*questRecord)
 }
 
 Quest::Quest(QuestTemplateQueryResult const& questRecord) :
-    RewardItemId({ questRecord.RewardItem1().GetUInt32(), questRecord.RewardItem2().GetUInt32(),
-        questRecord.RewardItem3().GetUInt32(), questRecord.RewardItem4().GetUInt32() }),
-    RewardItemCount({ questRecord.RewardAmount1().GetUInt32(), questRecord.RewardAmount2().GetUInt32(),
-        questRecord.RewardAmount3().GetUInt32(), questRecord.RewardAmount4().GetUInt32() }),
     ItemDrop({ questRecord.ItemDrop1().GetUInt32(), questRecord.ItemDrop2().GetUInt32(),
         questRecord.ItemDrop3().GetUInt32(), questRecord.ItemDrop4().GetUInt32() }),
     ItemDropQuantity({ questRecord.ItemDropQuantity1().GetUInt32(), questRecord.ItemDropQuantity2().GetUInt32(),
@@ -72,6 +68,10 @@ Quest::Quest(QuestTemplateQueryResult const& questRecord) :
     RewardChoiceItemDisplayId({ questRecord.RewardChoiceItemDisplayID1().GetUInt32(), questRecord.RewardChoiceItemDisplayID2().GetUInt32(),
         questRecord.RewardChoiceItemDisplayID3().GetUInt32(), questRecord.RewardChoiceItemDisplayID4().GetUInt32(),
         questRecord.RewardChoiceItemDisplayID5().GetUInt32(), questRecord.RewardChoiceItemDisplayID6().GetUInt32() }),
+    RewardItemId({ questRecord.RewardItem1().GetUInt32(), questRecord.RewardItem2().GetUInt32(),
+        questRecord.RewardItem3().GetUInt32(), questRecord.RewardItem4().GetUInt32() }),
+    RewardItemCount({ questRecord.RewardAmount1().GetUInt32(), questRecord.RewardAmount2().GetUInt32(),
+        questRecord.RewardAmount3().GetUInt32(), questRecord.RewardAmount4().GetUInt32() }),
     RewardFactionId({ questRecord.RewardFactionID1().GetUInt32(), questRecord.RewardFactionID2().GetUInt32(),
         questRecord.RewardFactionID3().GetUInt32(), questRecord.RewardFactionID4().GetUInt32(), questRecord.RewardFactionID5().GetUInt32() }),
     RewardFactionValue({ questRecord.RewardFactionValue1().GetInt32(), questRecord.RewardFactionValue2().GetInt32(),
@@ -93,7 +93,7 @@ Quest::Quest(QuestTemplateQueryResult const& questRecord) :
     _questSortID(questRecord.QuestSortID().GetInt16()),
     _questInfoID(questRecord.QuestInfoID().GetUInt16()),
     _suggestedPlayers(questRecord.SuggestedGroupNum().GetUInt8()),
-    _nextQuestInChain(questRecord.RewardNextQuest().GetUInt32()),
+    _rewardNextQuest(questRecord.RewardNextQuest().GetUInt32()),
     _rewardXPDifficulty(questRecord.RewardXPDifficulty().GetUInt32()),
     _rewardXPMultiplier(questRecord.RewardXPMultiplier().GetFloat()),
     _rewardMoneyDifficulty(questRecord.RewardMoneyDifficulty().GetUInt32()),
@@ -102,6 +102,7 @@ Quest::Quest(QuestTemplateQueryResult const& questRecord) :
     _rewardSpell(questRecord.RewardSpell().GetUInt32()),
     _rewardHonor(questRecord.RewardHonor().GetUInt32()),
     _rewardKillHonor(questRecord.RewardKillHonor().GetUInt32()),
+    _rewardFavor(questRecord.RewardFavor().GetInt32()),
     _rewardArtifactXPDifficulty(questRecord.RewardArtifactXPDifficulty().GetUInt32()),
     _rewardArtifactXPMultiplier(questRecord.RewardArtifactXPMultiplier().GetFloat()),
     _rewardArtifactCategoryID(questRecord.RewardArtifactCategoryID().GetUInt32()),
@@ -111,8 +112,8 @@ Quest::Quest(QuestTemplateQueryResult const& questRecord) :
     _flagsEx2(questRecord.FlagsEx2().GetUInt32()),
     _flagsEx3(questRecord.FlagsEx3().GetUInt32()),
     _poiContinent(questRecord.POIContinent().GetUInt32()),
-    _poix(questRecord.POIx().GetFloat()),
-    _poiy(questRecord.POIy().GetFloat()),
+    _poiX(questRecord.POIx().GetFloat()),
+    _poiY(questRecord.POIy().GetFloat()),
     _poiPriority(questRecord.POIPriority().GetUInt32()),
     _rewardTitleId(questRecord.RewardTitle().GetUInt32()),
     _rewardArenaPoints(questRecord.RewardArenaPoints().GetUInt32()),
@@ -127,7 +128,7 @@ Quest::Quest(QuestTemplateQueryResult const& questRecord) :
     _soundTurnIn(questRecord.CompleteSoundKitID().GetUInt32()),
     _areaGroupID(questRecord.AreaGroupID().GetUInt32()),
     _limitTime(questRecord.TimeAllowed().GetInt64()),
-    _allowableRaces({ .RawValue = questRecord.AllowableRaces().GetUInt64() }),
+    _allowableRaces({ .RawValue = advstd::bit_cast<std::array<int32, 2>>(questRecord.AllowableRaces().GetUInt64()) }),
     _expansion(questRecord.Expansion().GetInt32()),
     _managedWorldStateID(questRecord.ManagedWorldStateID().GetInt32()),
     _questSessionBonus(questRecord.QuestSessionBonus().GetInt32()),
@@ -277,20 +278,23 @@ void Quest::LoadQuestObjective(Field* fields)
     obj.StorageIndex = fields[3].GetInt8();
     obj.ObjectID = fields[4].GetInt32();
     obj.Amount = fields[5].GetInt32();
-    obj.Flags = fields[6].GetUInt32();
-    obj.Flags2 = fields[7].GetUInt32();
-    obj.ProgressBarWeight = fields[8].GetFloat();
-    obj.Description = fields[9].GetStringView();
+    obj.ConditionalAmount = fields[6].GetInt32();
+    obj.Flags = fields[7].GetUInt32();
+    obj.Flags2 = fields[8].GetUInt32();
+    obj.ProgressBarWeight = fields[9].GetFloat();
+    obj.ParentObjectiveID = fields[10].GetInt32();
+    obj.Visible = fields[11].GetBool();
+    obj.Description = fields[12].GetStringView();
 
-    bool hasCompletionEffect = std::any_of(fields + 10, fields + 15, [](Field const& f) { return !f.IsNull(); });
+    bool hasCompletionEffect = std::any_of(fields + 13, fields + 18, [](Field const& f) { return !f.IsNull(); });
     if (hasCompletionEffect)
     {
         obj.CompletionEffect = new QuestObjectiveAction();
-        obj.CompletionEffect->GameEventId = fields[10].GetUInt32OrNull();
-        obj.CompletionEffect->SpellId = fields[11].GetUInt32OrNull();
-        obj.CompletionEffect->ConversationId = fields[12].GetUInt32OrNull();
-        obj.CompletionEffect->UpdatePhaseShift = fields[13].GetBool();
-        obj.CompletionEffect->UpdateZoneAuras = fields[14].GetBool();
+        obj.CompletionEffect->GameEventId = fields[13].GetUInt32OrNull();
+        obj.CompletionEffect->SpellId = fields[14].GetUInt32OrNull();
+        obj.CompletionEffect->ConversationId = fields[15].GetUInt32OrNull();
+        obj.CompletionEffect->UpdatePhaseShift = fields[16].GetBool();
+        obj.CompletionEffect->UpdateZoneAuras = fields[17].GetBool();
     }
 
     _usedQuestObjectiveTypes[obj.Type] = true;
@@ -411,6 +415,16 @@ void Quest::LoadTreasurePickers(Field* fields)
     _treasurePickerID.push_back(fields[1].GetInt32());
 }
 
+void Quest::LoadRewardHouseRoom(Field* fields)
+{
+    _rewardHouseRoomIDs.push_back(fields[1].GetInt32());
+}
+
+void Quest::LoadRewardHouseDecor(Field* fields)
+{
+    _rewardHouseDecorIDs.push_back(fields[1].GetInt32());
+}
+
 uint32 Quest::XPValue(Player const* player) const
 {
     return XPValue(player, GetContentTuningId(), _rewardXPDifficulty, _rewardXPMultiplier, _expansion);
@@ -426,7 +440,8 @@ uint32 Quest::XPValue(Player const* player, uint32 contentTuningId, uint32 xpDif
             return 0;
 
         uint32 xp = questXp->Difficulty[xpDifficulty];
-        if (ContentTuningEntry const* contentTuning = sContentTuningStore.LookupEntry(contentTuningId))
+        uint32 redirectedContentTuningId = sDB2Manager.GetRedirectedContentTuningId(contentTuningId, player->m_playerData->CtrOptions->ConditionalFlags);
+        if (ContentTuningEntry const* contentTuning = sContentTuningStore.LookupEntry(redirectedContentTuningId))
             xp = xp * contentTuning->QuestXpMultiplier;
 
         int32 diffFactor = 2 * (questLevel - player->GetLevel()) + 12;
@@ -472,7 +487,7 @@ uint32 Quest::MoneyValue(Player const* player) const
 uint32 Quest::MaxMoneyValue() const
 {
     uint32 value = 0;
-    if (Optional<ContentTuningLevels> questLevels = sDB2Manager.GetContentTuningData(GetContentTuningId(), 0))
+    if (Optional<ContentTuningLevels> questLevels = sDB2Manager.GetContentTuningData(GetContentTuningId(), {}))
         if (QuestMoneyRewardEntry const* money = sQuestMoneyRewardStore.LookupEntry(questLevels->MaxLevel))
             value = money->Difficulty[GetRewMoneyDifficulty()] * GetMoneyMultiplier();
 
@@ -636,6 +651,8 @@ bool Quest::CanIncreaseRewardedQuestCounters() const
 
 void Quest::InitializeQueryData()
 {
+    QueryData = std::make_unique<WorldPacket[]>(TOTAL_LOCALES);
+
     for (uint8 loc = LOCALE_enUS; loc < TOTAL_LOCALES; ++loc)
     {
         if (!sWorld->getBoolConfig(CONFIG_LOAD_LOCALES) && loc != DEFAULT_LOCALE)
@@ -661,18 +678,18 @@ WorldPacket Quest::BuildQueryData(LocaleConstant loc, Player* player) const
     response.Info.PortraitGiverName = GetPortraitGiverName();
     response.Info.PortraitTurnInText = GetPortraitTurnInText();
     response.Info.PortraitTurnInName = GetPortraitTurnInName();
-    std::transform(GetConditionalQuestDescription().begin(), GetConditionalQuestDescription().end(), std::back_inserter(response.Info.ConditionalQuestDescription), [loc](QuestConditionalText const& text)
+    std::ranges::transform(GetConditionalQuestDescription(), std::back_inserter(response.Info.ConditionalQuestDescription), [loc](QuestConditionalText const& text) -> WorldPackets::Quest::ConditionalQuestText
     {
         std::string_view content = text.Text[LOCALE_enUS];
         ObjectMgr::GetLocaleString(text.Text, loc, content);
-        return WorldPackets::Quest::ConditionalQuestText { text.PlayerConditionId, text.QuestgiverCreatureId, content };
+        return { .PlayerConditionID = text.PlayerConditionId, .QuestGiverCreatureID = text.QuestgiverCreatureId, .Text = content };
     });
 
-    std::transform(GetConditionalQuestCompletionLog().begin(), GetConditionalQuestCompletionLog().end(), std::back_inserter(response.Info.ConditionalQuestCompletionLog), [loc](QuestConditionalText const& text)
+    std::ranges::transform(GetConditionalQuestCompletionLog(), std::back_inserter(response.Info.ConditionalQuestCompletionLog), [loc](QuestConditionalText const& text) -> WorldPackets::Quest::ConditionalQuestText
     {
         std::string_view content = text.Text[LOCALE_enUS];
         ObjectMgr::GetLocaleString(text.Text, loc, content);
-        return WorldPackets::Quest::ConditionalQuestText { text.PlayerConditionId, text.QuestgiverCreatureId, content };
+        return { .PlayerConditionID = text.PlayerConditionId, .QuestGiverCreatureID = text.QuestgiverCreatureId, .Text = content };
     });
 
     if (loc != LOCALE_enUS)
@@ -721,6 +738,8 @@ WorldPacket Quest::BuildQueryData(LocaleConstant loc, Player* player) const
     response.Info.RewardHonor = GetRewHonor();
     response.Info.RewardKillHonor = GetRewKillHonor();
 
+    response.Info.RewardFavor = GetRewardFavor();
+
     response.Info.RewardArtifactXPDifficulty = GetArtifactXPDifficulty();
     response.Info.RewardArtifactXPMultiplier = GetArtifactXPMultiplier();
     response.Info.RewardArtifactCategoryID = GetArtifactCategoryId();
@@ -757,6 +776,7 @@ WorldPacket Quest::BuildQueryData(LocaleConstant loc, Player* player) const
         {
             response.Info.UnfilteredChoiceItems[i].ItemID = RewardChoiceItemId[i];
             response.Info.UnfilteredChoiceItems[i].Quantity = RewardChoiceItemCount[i];
+            response.Info.UnfilteredChoiceItems[i].DisplayID = RewardChoiceItemDisplayId[i];
         }
     }
 
@@ -779,15 +799,34 @@ WorldPacket Quest::BuildQueryData(LocaleConstant loc, Player* player) const
     response.Info.ManagedWorldStateID = GetManagedWorldStateId();
     response.Info.QuestSessionBonus = 0; //GetQuestSessionBonus(); // this is only sent while quest session is active
     response.Info.QuestGiverCreatureID = 0; // only sent during npc interaction
+    response.Info.RewardHouseRoomIDs = GetRewardHouseRoomIds();
+    response.Info.RewardHouseDecorIDs = GetRewardRewardHouseDecorIds();
 
-    for (QuestObjective const& questObjective : GetObjectives())
+    response.Info.Objectives.resize(GetObjectives().size());
+    for (std::size_t i = 0; i < GetObjectives().size(); ++i)
     {
-        response.Info.Objectives.push_back(questObjective);
+        QuestObjective const& questObjective = GetObjectives()[i];
+        WorldPackets::Quest::QuestInfoObjective& responseObjective = response.Info.Objectives[i];
+
+        responseObjective.ID = questObjective.ID;
+        responseObjective.QuestID = questObjective.QuestID;
+        responseObjective.Type = questObjective.Type;
+        responseObjective.StorageIndex = questObjective.StorageIndex;
+        responseObjective.ObjectID = questObjective.ObjectID;
+        responseObjective.Amount = questObjective.Amount;
+        responseObjective.ConditionalAmount = questObjective.ConditionalAmount;
+        responseObjective.Flags = questObjective.Flags;
+        responseObjective.Flags2 = questObjective.Flags2;
+        responseObjective.ProgressBarWeight = questObjective.ProgressBarWeight;
+        responseObjective.ParentObjectiveID = questObjective.ParentObjectiveID;
+        responseObjective.Visible = questObjective.Visible;
+        responseObjective.Description = questObjective.Description;
+        responseObjective.VisualEffects = questObjective.VisualEffects;
 
         if (loc != LOCALE_enUS)
         {
             if (QuestObjectivesLocale const* questObjectivesLocale = sObjectMgr->GetQuestObjectivesLocale(questObjective.ID))
-                ObjectMgr::GetLocaleString(questObjectivesLocale->Description, loc, response.Info.Objectives.back().Description);
+                ObjectMgr::GetLocaleString(questObjectivesLocale->Description, loc, responseObjective.Description);
         }
     }
 

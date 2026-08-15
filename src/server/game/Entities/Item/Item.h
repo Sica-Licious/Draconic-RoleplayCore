@@ -106,6 +106,7 @@ struct BonusData
     uint32 ItemLevelOffsetCurveId;
     uint32 ItemLevelOffsetItemLevel;
     uint32 ItemLevelOffset;
+    uint32 ItemSquishEraID;
     std::array<ItemEffectEntry const*, 13> Effects;
     std::size_t EffectCount;
     uint32 LimitCategory;
@@ -115,6 +116,7 @@ struct BonusData
     bool CanRecraft;
     bool HasFixedLevel;
     bool CannotTradeBindOnPickup;
+    bool IgnoreSquish;
 
     void Initialize(ItemTemplate const* proto);
     void Initialize(WorldPackets::Item::ItemInstance const& itemInstance);
@@ -266,8 +268,8 @@ class TC_GAME_API Item : public Object
         void SaveRefundDataToDB();
         void DeleteRefundDataFromDB(CharacterDatabaseTransaction* trans);
 
-        Bag* ToBag() { if (IsBag()) return reinterpret_cast<Bag*>(this); else return nullptr; }
-        Bag const* ToBag() const { if (IsBag()) return reinterpret_cast<Bag const*>(this); else return nullptr; }
+        Bag* ToBag() { return IsBag() ? reinterpret_cast<Bag*>(this) : nullptr; }
+        Bag const* ToBag() const { return IsBag() ? reinterpret_cast<Bag const*>(this) : nullptr; }
         AzeriteItem* ToAzeriteItem() { return IsAzeriteItem() ? reinterpret_cast<AzeriteItem*>(this) : nullptr; }
         AzeriteItem const* ToAzeriteItem() const { return IsAzeriteItem() ? reinterpret_cast<AzeriteItem const*>(this) : nullptr; }
         AzeriteEmpoweredItem* ToAzeriteEmpoweredItem() { return IsAzeriteEmpoweredItem() ? reinterpret_cast<AzeriteEmpoweredItem*>(this) : nullptr; }
@@ -289,7 +291,7 @@ class TC_GAME_API Item : public Object
         void SetInTrade(bool b = true) { mb_in_trade = b; }
         bool IsInTrade() const { return mb_in_trade; }
 
-        uint64 CalculateDurabilityRepairCost(float discount) const;
+        uint64 CalculateDurabilityRepairCost(float discount, bool useRateConfig = true) const;
 
         bool HasEnchantRequiredSkill(Player const* player) const;
         uint32 GetEnchantRequiredLevel() const;
@@ -359,16 +361,16 @@ class TC_GAME_API Item : public Object
 
         bool hasQuest(uint32 quest_id) const override { return GetTemplate()->GetStartQuest() == quest_id; }
         bool hasInvolvedQuest(uint32 /*quest_id*/) const override { return false; }
-        bool IsPotion() const { return GetTemplate()->IsPotion(); }
         bool IsVellum() const { return GetTemplate()->IsVellum(); }
         bool IsConjuredConsumable() const { return GetTemplate()->IsConjuredConsumable(); }
         uint32 GetQuality() const { return _bonusData.Quality; }
         uint32 GetItemLevel(Player const* owner) const;
         static uint32 GetItemLevel(ItemTemplate const* itemTemplate, BonusData const& bonusData, uint32 level, uint32 fixedLevel,
-            uint32 minItemLevel, uint32 minItemLevelCutoff, uint32 maxItemLevel, bool pvpBonus, uint32 azeriteLevel);
+            uint32 minItemLevel, uint32 minItemLevelCutoff, uint32 maxItemLevel, bool pvpBonus, uint32 azeriteLevel, bool applySquish = true);
         int32 GetRequiredLevel() const;
 		int32 GetItemStatType(uint32 index) const;
         float GetItemStatValue(uint32 index, Player const* owner) const;
+        float GetItemStatValue(uint32 index, uint32 itemLevel) const;
         uint32 GetSocketColor(uint32 index) const { ASSERT(index < MAX_ITEM_PROTO_SOCKETS); return _bonusData.SocketColor[index]; }
         uint32 GetAppearanceModId() const { return m_itemData->ItemAppearanceModID; }
         void SetAppearanceModId(uint32 appearanceModId) { SetUpdateFieldValue(m_values.ModifyValue(&Item::m_itemData).ModifyValue(&UF::ItemData::ItemAppearanceModID), appearanceModId); }
@@ -405,22 +407,23 @@ class TC_GAME_API Item : public Object
 
     protected:
         UF::UpdateFieldFlag GetUpdateFieldFlagsFor(Player const* target) const final;
-        void BuildValuesCreate(ByteBuffer* data, UF::UpdateFieldFlag flags, Player const* target) const override;
-        void BuildValuesUpdate(ByteBuffer* data, UF::UpdateFieldFlag flags, Player const* target) const override;
-        void ClearUpdateMask(bool remove) override;
+        void BuildValuesCreate(UF::UpdateFieldFlag flags, ByteBuffer& data, Player const* target) const override;
+        void BuildValuesUpdate(UF::UpdateFieldFlag flags, ByteBuffer& data, Player const* target) const override;
+        void ClearValuesChangesMask() override;
 
     public:
-        void BuildValuesUpdateWithFlag(ByteBuffer* data, UF::UpdateFieldFlag flags, Player const* target) const override;
+        void BuildValuesUpdateWithFlag(UF::UpdateFieldFlag flags, ByteBuffer& data, Player const* target) const override;
         void BuildValuesUpdateForPlayerWithMask(UpdateData* data, UF::ObjectData::Mask const& requestedObjectMask,
-            UF::ItemData::Mask const& requestedItemMask, Player const* target) const;
+            UF::ItemData::Mask const& requestedItemMask, Player const* target, bool ignoreNestedChangesMask) const;
 
         struct ValuesUpdateForPlayerWithMaskSender // sender compatible with MessageDistDeliverer
         {
-            explicit ValuesUpdateForPlayerWithMaskSender(Item const* owner) : Owner(owner) { }
+            explicit ValuesUpdateForPlayerWithMaskSender(Item const* owner) : Owner(owner), IgnoreNestedChangesMask(false) { }
 
             Item const* Owner;
             UF::ObjectData::Base ObjectMask;
             UF::ItemData::Base ItemMask;
+            bool IgnoreNestedChangesMask;
 
             void operator()(Player const* player) const;
         };
@@ -434,7 +437,7 @@ class TC_GAME_API Item : public Object
         static bool CanTransmogrifyItemWithItem(Item const* item, ItemModifiedAppearanceEntry const* itemModifiedAppearance);
         uint32 GetBuyPrice(Player const* owner, bool& standardPrice) const;
         static uint32 GetBuyPrice(ItemTemplate const* proto, uint32 quality, uint32 itemLevel, bool& standardPrice);
-        uint32 GetSellPrice(Player const* owner) const;
+        uint32 GetSellPrice(Player const* owner, bool forVendor = false) const;
         static uint32 GetSellPrice(ItemTemplate const* proto, uint32 quality, uint32 itemLevel);
 
         uint32 GetVisibleEntry(Player const* owner) const;
