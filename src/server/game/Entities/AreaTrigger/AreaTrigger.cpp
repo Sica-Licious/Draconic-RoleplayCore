@@ -552,7 +552,7 @@ float AreaTrigger::GetScaleCurveValueAtProgress(UF::ScaleCurve const& scaleCurve
     for (std::size_t i = 0; i < scaleCurve.Points.size(); ++i)
         points[i] = { .X = scaleCurve.Points[i].Pos.GetPositionX(), .Y = scaleCurve.Points[i].Pos.GetPositionY() };
 
-    CurveInterpolationMode mode = CurveInterpolationMode(*scaleCurve.ParameterCurve >> 1 & 0x7);
+    CurveInterpolationMode mode = CurveInterpolationMode(*scaleCurve.ParameterCurve >> 1 & 0xF);
     std::size_t pointCount = *scaleCurve.ParameterCurve >> 24 & 0xFF;
 
     return sDB2Manager.GetCurveValueAt(mode, std::span(points.begin(), pointCount), x);
@@ -597,9 +597,9 @@ void AreaTrigger::SetScaleCurve(UF::MutableFieldReference<UF::ScaleCurve, false>
     SetUpdateFieldValue(scaleCurveMutator.ModifyValue(&UF::ScaleCurve::OverrideActive), true);
     SetUpdateFieldValue(scaleCurveMutator.ModifyValue(&UF::ScaleCurve::StartTimeOffset), curve->StartTimeOffset);
 
-    Position point;
+    TaggedPosition<Position::XY> point;
     // ParameterCurve packing information
-    // (not_using_points & 1) | ((interpolation_mode & 0x7) << 1) | ((first_point_offset & 0xFFFFF) << 4) | ((point_count & 0xFF) << 24)
+    // (not_using_points & 1) | ((interpolation_mode & 0xF) << 1) | ((first_point_offset & 0x7FFFF) << 5) | ((point_count & 0xFF) << 24)
     //   if not_using_points is set then the entire field is simply read as a float (ignoring that lowest bit)
 
     if (float const* simpleFloat = std::get_if<float>(&curve->Curve))
@@ -644,7 +644,7 @@ void AreaTrigger::SetScaleCurve(UF::MutableFieldReference<UF::ScaleCurve, false>
 
         for (std::size_t i = 0; i < curvePoints->size(); ++i)
         {
-            point.Relocate((*curvePoints)[i].X, (*curvePoints)[i].Y);
+            point.Pos.Relocate((*curvePoints)[i].X, (*curvePoints)[i].Y);
             SetUpdateFieldValue(scaleCurveMutator.ModifyValue(&UF::ScaleCurve::Points, i), point);
         }
     }
@@ -849,8 +849,8 @@ void AreaTrigger::SearchUnitInBoundedPlane(UF::AreaTriggerBoundedPlane const& bo
         progress = sDB2Manager.GetCurveValueAt(m_areaTriggerData->MorphCurveId, progress);
 
     float scale = CalcCurrentScale();
-    float extentsX = G3D::lerp(boundedPlane.Extents->Pos.GetPositionX(), boundedPlane.ExtentsTarget->Pos.GetPositionX(), progress) * scale;
-    float extentsY = G3D::lerp(boundedPlane.Extents->Pos.GetPositionY(), boundedPlane.ExtentsTarget->Pos.GetPositionY(), progress) * scale;
+    float extentsX = G3D::lerp(boundedPlane.ExtentsX, boundedPlane.ExtentsTargetX, progress) * scale;
+    float extentsY = G3D::lerp(boundedPlane.ExtentsY, boundedPlane.ExtentsTargetY, progress) * scale;
     float radius = std::sqrt(extentsX * extentsX + extentsY * extentsY);
 
     SearchUnits(targetList, radius, false);
@@ -1055,8 +1055,10 @@ void AreaTrigger::SetShape(AreaTriggerShapeInfo const& shape)
         {
             SetUpdateFieldValue(areaTriggerData.ModifyValue(&UF::AreaTriggerData::ShapeType), 8);
             auto boundedPlane = areaTriggerData.ModifyValue(&UF::AreaTriggerData::ShapeData, UF::VariantCase<UF::AreaTriggerBoundedPlane>);
-            SetUpdateFieldValue(boundedPlane.ModifyValue(&UF::AreaTriggerBoundedPlane::Extents), shapeData.Extents);
-            SetUpdateFieldValue(boundedPlane.ModifyValue(&UF::AreaTriggerBoundedPlane::ExtentsTarget), shapeData.ExtentsTarget);
+            SetUpdateFieldValue(boundedPlane.ModifyValue(&UF::AreaTriggerBoundedPlane::ExtentsX), shapeData.Extents.Pos.GetPositionX());
+            SetUpdateFieldValue(boundedPlane.ModifyValue(&UF::AreaTriggerBoundedPlane::ExtentsY), shapeData.Extents.Pos.GetPositionY());
+            SetUpdateFieldValue(boundedPlane.ModifyValue(&UF::AreaTriggerBoundedPlane::ExtentsTargetX), shapeData.ExtentsTarget.Pos.GetPositionX());
+            SetUpdateFieldValue(boundedPlane.ModifyValue(&UF::AreaTriggerBoundedPlane::ExtentsTargetY), shapeData.ExtentsTarget.Pos.GetPositionY());
         }
         else
             static_assert(Trinity::dependant_false_v<ShapeType>, "Unsupported shape type");
