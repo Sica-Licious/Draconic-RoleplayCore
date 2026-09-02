@@ -127,7 +127,7 @@ namespace WorldPackets
             WorldPacket const* Write() override;
 
             bool VoiceEnabled                        = false;
-            bool BpayStoreAvailable                  = false;
+            bool BpayStoreAvailable                  = true;
             Optional<SessionAlertConfig> SessionAlert;
             Optional<EuropaTicketConfig> EuropaTicketSystemStatus;
             uint32 CfgRealmID                            = 0;
@@ -136,7 +136,7 @@ namespace WorldPackets
             uint32 CommercePricePollTimeSeconds          = 0;
             int64 RedeemForBalanceAmount                 = 0;
             uint32 ClubsPresenceDelay                    = 0;
-            uint32 ClubPresenceUnsubscribeDelay          = 0; ///< Timer for updating club presence when communities ui frame is hidden
+            uint32 ClubPresenceUnsubscribeDelay          = 60000; ///< Timer for updating club presence when communities ui frame is hidden
             uint32 KioskSessionDurationMinutes           = 0;
             int32 ContentSetID                           = 0; ///< Currently active Classic season
             int16 MaxPlayerGuidLookupsPerRequest         = 50;
@@ -154,16 +154,16 @@ namespace WorldPackets
             bool CompetitiveModeEnabled              = true;
             bool RedeemForBalanceAvailable           = false;
             bool WarModeEnabled                      = true;
-            bool CommunitiesEnabled                  = false;
+            bool CommunitiesEnabled                  = true;
             bool BnetGroupsEnabled                   = false;
-            bool CharacterCommunitiesEnabled         = false;
+            bool CharacterCommunitiesEnabled         = true;
             bool ClubPresenceAllowSubscribeAll       = false;
             bool VoiceChatParentalDisabled           = false;
             bool VoiceChatParentalMuted              = false;
             bool QuestSessionEnabled                 = false;
             bool IsChatMuted                         = false;
-            bool ClubFinderEnabled                   = false;
-            bool CommunityFinderEnabled              = false;
+            bool ClubFinderEnabled                   = true;
+            bool CommunityFinderEnabled              = true;
             bool BrowserCrashReporterEnabled         = false;
             bool SpeakForMeAllowed                   = false;
             bool DoesAccountNeedAADCPrompt           = false;
@@ -178,7 +178,7 @@ namespace WorldPackets
             bool PetHappinessEnabled                 = true;  // classic only
             bool GuildEventsEditsEnabled             = true;
             bool GuildTradeSkillsEnabled             = true;
-            bool IsAccountCurrencyTransferEnabled    = false;
+            bool IsAccountCurrencyTransferEnabled    = true;
             bool NetEaseChatTelemetryEnabled         = false;
             bool LobbyMatchmakerQueueFromMainlineEnabled = false;
             bool CanSendLobbyMatchmakerPartyCustomizations = false;
@@ -217,10 +217,10 @@ namespace WorldPackets
 
             WorldPacket const* Write() override;
 
-            bool BpayStoreAvailable                  = false; // NYI
+            bool BpayStoreAvailable                  = true; // NYI
             bool BpayStoreDisabledByParentalControls = false; // NYI
             bool CharUndeleteEnabled                 = false;
-            bool CommerceServerEnabled               = false; // NYI
+            bool CommerceServerEnabled               = true; // NYI
             bool PaidCharacterTransfersBetweenBnetAccountsEnabled = false;
             bool VeteranTokenRedeemWillKick          = false; // NYI
             bool WorldTokenRedeemWillKick            = false; // NYI
@@ -245,7 +245,7 @@ namespace WorldPackets
             bool AccountLockedPostExport             = false;
             bool CharacterSelectListModeRealmless    = false;
             bool WowTokenLimitedMode                 = false; // classic only
-            bool NavBarEnabled                       = true;
+            bool NavBarEnabled                       = false;
             bool GlobalUserGeneratedContentMuteEnabled = false;
             bool AccountUserGeneratedContentIsRisky  = false;
             Optional<EuropaTicketConfig> EuropaTicketSystemStatus;

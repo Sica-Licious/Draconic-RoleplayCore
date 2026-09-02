@@ -486,8 +486,15 @@ bool Player::Create(ObjectGuid::LowType guidlow, WorldPackets::Character::Charac
     SetRestState(REST_TYPE_HONOR, REST_STATE_NORMAL);
     SetNativeGender(Gender(createInfo->Sex));
 
-    // set starting level
-    SetLevel(GetStartLevel(createInfo->Race, createInfo->Class, createInfo->TemplateSet), false);
+    // set starting level  
+    uint8 startLevel = GetStartLevel(createInfo->Race, createInfo->Class, createInfo->TemplateSet);
+    if (createInfo->IsTrialBoost)
+    {
+        startLevel = sWorld->getIntConfig(CONFIG_CHARACTER_CREATING_TRIAL_BOOST_LEVEL);
+        SetPlayerLocalFlag(PLAYER_LOCAL_FLAG_NEWLY_BOOSTED_CHARACTER);
+        SetHasLevelBoosted();
+    }
+    SetLevel(startLevel, false);
 
     InitRunes();
 
@@ -509,9 +516,9 @@ bool Player::Create(ObjectGuid::LowType guidlow, WorldPackets::Character::Charac
     UpdateMaxHealth();                                      // Update max Health (for add bonus from stamina)
     SetFullHealth();
 
-    for (PowerTypeEntry const* powerType : sPowerTypeStore)
-        if (powerType->GetFlags().HasFlag(PowerTypeFlags::SetToMaxOnInitialLogIn))
-            SetFullPower(Powers(powerType->PowerTypeEnum));
+    for (Powers power : GetPowerTypes())
+        if (sDB2Manager.GetPowerTypeEntry(power)->GetFlags().HasFlag(PowerTypeFlags::SetToMaxOnInitialLogIn))
+            SetFullPower(power);
 
     // original spells
     LearnDefaultSkills();
@@ -2303,9 +2310,9 @@ void Player::GiveLevel(uint8 level)
 
     // Only health and mana are set to maximum.
     SetFullHealth();
-    for (PowerTypeEntry const* powerType : sPowerTypeStore)
-        if (powerType->GetFlags().HasFlag(PowerTypeFlags::SetToMaxOnLevelUp))
-            SetFullPower(Powers(powerType->PowerTypeEnum));
+    for (Powers power : GetPowerTypes())
+        if (sDB2Manager.GetPowerTypeEntry(power)->GetFlags().HasFlag(PowerTypeFlags::SetToMaxOnLevelUp))
+            SetFullPower(power);
 
     // update level to hunter/summon pet
     if (Pet* pet = GetPet())
@@ -2325,12 +2332,19 @@ void Player::GiveLevel(uint8 level)
     if (level > oldLevel)
         UpdateCriteria(CriteriaType::GainLevels, level - oldLevel);
     if (IsMaxLevel())
-    {
         UpdateCriteria(CriteriaType::ReachMaxLevel);
 
-        // Blizzlike: clear Chromie Time when reaching max level
-        if (m_activePlayerData->UiChromieTimeExpansionID != 0)
-            SetChromieTime(0);
+    // Retail 12.0.x hard-exits Chromie Time at the deactivation level (81): the state is
+    // force-cleared and the player is returned to their faction capital (audit R10/M7;
+    // 12.0.1 patch note moved the threshold 61 -> 71 -> 81). The level-80 soft exit
+    // (auto-accepted return quest + capital auto-exit) is NYI - data unmined, see Player.h.
+    if (level >= ChromieTimeDeactivationLevel && m_activePlayerData->UiChromieTimeExpansionID != 0)
+    {
+        SetChromieTime(0);
+        if (GetTeam() == ALLIANCE)
+            TeleportTo(0, -8833.38f, 628.628f, 94.0066f, 1.06535f); // Stormwind
+        else
+            TeleportTo(1, 1569.97f, -4397.41f, 16.0472f, 0.543025f); // Orgrimmar
     }
 
     PushQuests();
@@ -6534,11 +6548,14 @@ void Player::SetChromieTime(int32 expansionId)
 
     SetChromieTimeConditionalFlags(expansionId > 0);
 
-    // Sniffs show FactionGroup is 0 when chromie is inactive and 3/Alliance (or 5/Horde) when active.
+    // Retail keeps FactionGroup populated from the player's faction independent of chromie
+    // state and never resets it on deselect (capture A rec 2149: fg 0->3 with mask 0 before
+    // any chromie interaction; equivalents B 2229 / C 1462). Alliance = 3 (Player|Alliance)
+    // is sniff-verified; the Horde value (expected 5 = Player|Horde per FactionTemplate)
+    // is unverified - no Horde 12.0.5+ sniff exists (audit R5 deferral).
     SetUpdateFieldValue(m_values.ModifyValue(&Player::m_playerData)
         .ModifyValue(&UF::PlayerData::CtrOptions)
-        .ModifyValue(&UF::CTROptions::FactionGroup),
-        expansionId > 0 ? GetFactionGroupForRace(GetRace()) : uint8(0));
+        .ModifyValue(&UF::CTROptions::FactionGroup), GetFactionGroupForRace(GetRace()));
 
     SendCtrOptions(&previous);
     PhasingHandler::OnConditionChange(this);
@@ -18965,8 +18982,11 @@ bool Player::LoadFromDB(ObjectGuid guid, CharacterDatabaseQueryHolder const& hol
     //Other way is to saves m_team into characters table.
     SetFactionForRace(GetRace());
 
-    // Restore Chromie Time state from DB
-    if (fields.chromieTimeExpansionId > 0)
+    // Restore Chromie Time state from DB. A character at or above the deactivation level
+    // restores nothing: the update fields stay zeroed and the next save persists 0, so a
+    // stale DB value (e.g. written before a level-up cleared the state) cannot resurrect
+    // chromie time on login (audit R8/m3, SRV CHR-4; band per audit R10).
+    if (fields.chromieTimeExpansionId > 0 && GetLevel() < ChromieTimeDeactivationLevel)
     {
         if (UIChromieTimeExpansionInfoEntry const* entry = sUIChromieTimeExpansionInfoStore.LookupEntry(uint32(fields.chromieTimeExpansionId)))
         {
@@ -25924,9 +25944,12 @@ void Player::SendInitialPacketsBeforeAddToMap()
     initialSetup.ServerExpansionLevel = sWorld->getIntConfig(CONFIG_EXPANSION);
     SendDirectMessage(initialSetup.Write());
 
-    // Send Chromie Time state to client on login
-    if (m_activePlayerData->UiChromieTimeExpansionID != 0)
-        SendCtrOptions();
+    // Retail sends SMSG_SET_CTR_OPTIONS during login to every player regardless of chromie
+    // state (captures A/B/C: pulses appear in all 32 non-chromie sessions too - audit M4),
+    // and the first send of a session carries a default-empty Previous block
+    // ([ (0,0,0,[]), current ] - A rec 721 / B 485 / C 469, audit m2).
+    WorldPackets::Misc::CTROptionsBlock emptyPrevious;
+    SendCtrOptions(&emptyPrevious);
 
     SetMovedUnit(this);
 }
