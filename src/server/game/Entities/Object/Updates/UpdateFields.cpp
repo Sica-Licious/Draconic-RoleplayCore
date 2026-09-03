@@ -7625,7 +7625,7 @@ void CorpseData::ClearChangesMask()
     _changesMask.ResetAll();
 }
 
-void ScaleCurve::WriteCreate(ByteBuffer& data, Player const* receiver, AreaTrigger const* owner) const
+void OverrideCurve::WriteCreate(ByteBuffer& data, Player const* receiver, AreaTrigger const* owner) const
 {
     data << uint32(StartTimeOffset);
     for (uint32 i = 0; i < 2; ++i)
@@ -7637,7 +7637,7 @@ void ScaleCurve::WriteCreate(ByteBuffer& data, Player const* receiver, AreaTrigg
     data.FlushBits();
 }
 
-void ScaleCurve::WriteUpdate(bool ignoreChangesMask, ByteBuffer& data, Player const* receiver, AreaTrigger const* owner) const
+void OverrideCurve::WriteUpdate(bool ignoreChangesMask, ByteBuffer& data, Player const* receiver, AreaTrigger const* owner) const
 {
     Mask changesMask = _changesMask;
     if (ignoreChangesMask)
@@ -7676,7 +7676,7 @@ void ScaleCurve::WriteUpdate(bool ignoreChangesMask, ByteBuffer& data, Player co
     }
 }
 
-void ScaleCurve::ClearChangesMask()
+void OverrideCurve::ClearChangesMask()
 {
     Base::ClearChangesMask(OverrideActive);
     Base::ClearChangesMask(StartTimeOffset);
@@ -7691,7 +7691,7 @@ void VisualAnim::WriteCreate(ByteBuffer& data, Player const* receiver, AreaTrigg
     data.WriteBit(IsDecay);
     data.FlushBits();
     data << uint32(AnimKitID);
-    data << uint32(AnimProgress);
+    data << uint32(ServerTime);
     if (AnimationDataID.has_value())
     {
         data << int16(*AnimationDataID);
@@ -7727,7 +7727,7 @@ void VisualAnim::WriteUpdate(bool ignoreChangesMask, ByteBuffer& data, Player co
         }
         if (changesMask[4])
         {
-            data << uint32(AnimProgress);
+            data << uint32(ServerTime);
         }
         if (changesMask[2])
         {
@@ -7744,7 +7744,7 @@ void VisualAnim::ClearChangesMask()
     Base::ClearChangesMask(IsDecay);
     Base::ClearChangesMask(AnimationDataID);
     Base::ClearChangesMask(AnimKitID);
-    Base::ClearChangesMask(AnimProgress);
+    Base::ClearChangesMask(ServerTime);
     _changesMask.ResetAll();
 }
 
@@ -7803,7 +7803,7 @@ void AreaTriggerActionSetPeriodModifier::ClearChangesMask()
 void AreaTriggerSplineCalculator::WriteCreate(ByteBuffer& data, Player const* receiver, AreaTrigger const* owner) const
 {
     data.WriteBits(Points.size(), 16);
-    data.WriteBit(Catmullrom);
+    data.WriteBit(Linear);
     data.FlushBits();
     for (uint32 i = 0; i < Points.size(); ++i)
     {
@@ -7824,7 +7824,7 @@ void AreaTriggerSplineCalculator::WriteUpdate(bool ignoreChangesMask, ByteBuffer
     {
         if (changesMask[1])
         {
-            data.WriteBit(Catmullrom);
+            data.WriteBit(Linear);
         }
         if (changesMask[2])
         {
@@ -7852,7 +7852,7 @@ void AreaTriggerSplineCalculator::WriteUpdate(bool ignoreChangesMask, ByteBuffer
 
 void AreaTriggerSplineCalculator::ClearChangesMask()
 {
-    Base::ClearChangesMask(Catmullrom);
+    Base::ClearChangesMask(Linear);
     Base::ClearChangesMask(Points);
     _changesMask.ResetAll();
 }
@@ -8287,14 +8287,14 @@ void AreaTriggerData::WriteCreate(EnumFlag<UpdateFieldFlag> fieldVisibilityFlags
     OverrideMoveCurveX->WriteCreate(data, receiver, owner);
     OverrideMoveCurveY->WriteCreate(data, receiver, owner);
     OverrideMoveCurveZ->WriteCreate(data, receiver, owner);
-    Unk1205Curve->WriteCreate(data, receiver, owner);
+    OverrideFacingCurve->WriteCreate(data, receiver, owner);
     data << *Caster;
     data << uint32(Duration);
     data << uint32(TimeToTarget);
     data << uint32(TimeToTargetScale);
     data << uint32(TimeToTargetExtraScale);
     data << uint32(TimeToTargetPos);
-    data << uint32(TimeToTargetUnk1205Curve);
+    data << uint32(TimeToTargetFacing);
     data << int32(SpellID);
     data << int32(SpellForVisuals);
     SpellVisual->WriteCreate(data, receiver, owner);
@@ -8401,7 +8401,7 @@ void AreaTriggerData::WriteUpdate(Mask const& changesMask, ByteBuffer& data, Pla
         }
         if (changesMask[6])
         {
-            Unk1205Curve->WriteUpdate(ignoreNestedChangesMask, data, receiver, owner);
+            OverrideFacingCurve->WriteUpdate(ignoreNestedChangesMask, data, receiver, owner);
         }
         if (changesMask[7])
         {
@@ -8429,7 +8429,7 @@ void AreaTriggerData::WriteUpdate(Mask const& changesMask, ByteBuffer& data, Pla
         }
         if (changesMask[13])
         {
-            data << uint32(TimeToTargetUnk1205Curve);
+            data << uint32(TimeToTargetFacing);
         }
         if (changesMask[14])
         {
@@ -8603,14 +8603,14 @@ void AreaTriggerData::ClearChangesMask()
     Base::ClearChangesMask(OverrideMoveCurveX);
     Base::ClearChangesMask(OverrideMoveCurveY);
     Base::ClearChangesMask(OverrideMoveCurveZ);
-    Base::ClearChangesMask(Unk1205Curve);
+    Base::ClearChangesMask(OverrideFacingCurve);
     Base::ClearChangesMask(Caster);
     Base::ClearChangesMask(Duration);
     Base::ClearChangesMask(TimeToTarget);
     Base::ClearChangesMask(TimeToTargetScale);
     Base::ClearChangesMask(TimeToTargetExtraScale);
     Base::ClearChangesMask(TimeToTargetPos);
-    Base::ClearChangesMask(TimeToTargetUnk1205Curve);
+    Base::ClearChangesMask(TimeToTargetFacing);
     Base::ClearChangesMask(SpellID);
     Base::ClearChangesMask(SpellForVisuals);
     Base::ClearChangesMask(SpellVisual);
