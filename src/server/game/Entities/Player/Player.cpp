@@ -486,9 +486,15 @@ bool Player::Create(ObjectGuid::LowType guidlow, WorldPackets::Character::Charac
     SetRestState(REST_TYPE_HONOR, REST_STATE_NORMAL);
     SetNativeGender(Gender(createInfo->Sex));
 
-    // set starting level
-    SetLevel(GetStartLevel(createInfo->Race, createInfo->Class, createInfo->TemplateSet), false);
-
+    // set starting level  
+	uint8 startLevel = GetStartLevel(createInfo->Race, createInfo->Class, createInfo->TemplateSet);
+	if (createInfo->IsTrialBoost)
+	{
+		startLevel = sWorld->getIntConfig(CONFIG_CHARACTER_CREATING_TRIAL_BOOST_LEVEL);
+		SetPlayerLocalFlag(PLAYER_LOCAL_FLAG_NEWLY_BOOSTED_CHARACTER);
+		SetHasLevelBoosted();
+	}
+	SetLevel(startLevel, false);
     InitRunes();
 
     SetUpdateFieldValue(m_values.ModifyValue(&Player::m_activePlayerData).ModifyValue(&UF::ActivePlayerData::Coinage), GetStartMoney(createInfo->Race, createInfo->Class));

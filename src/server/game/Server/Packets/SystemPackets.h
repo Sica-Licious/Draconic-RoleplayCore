@@ -127,7 +127,7 @@ namespace WorldPackets
             WorldPacket const* Write() override;
 
             bool VoiceEnabled                        = false;
-            bool BpayStoreAvailable                  = false;
+            bool BpayStoreAvailable                  = true;
             Optional<SessionAlertConfig> SessionAlert;
             Optional<EuropaTicketConfig> EuropaTicketSystemStatus;
             uint32 CfgRealmID                            = 0;
@@ -136,7 +136,7 @@ namespace WorldPackets
             uint32 CommercePricePollTimeSeconds          = 0;
             int64 RedeemForBalanceAmount                 = 0;
             uint32 ClubsPresenceDelay                    = 0;
-            uint32 ClubPresenceUnsubscribeDelay          = 0; ///< Timer for updating club presence when communities ui frame is hidden
+            uint32 ClubPresenceUnsubscribeDelay          = 60000; ///< Timer for updating club presence when communities ui frame is hidden
             uint32 KioskSessionDurationMinutes           = 0;
             int32 ContentSetID                           = 0; ///< Currently active Classic season
             int16 MaxPlayerGuidLookupsPerRequest         = 50;
@@ -151,19 +151,19 @@ namespace WorldPackets
             bool TutorialEnabled                     = false;
             bool NPETutorialsEnabled                 = false;
             bool KioskModeEnabled                    = false;
-            bool CompetitiveModeEnabled              = false;
+            bool CompetitiveModeEnabled              = true;
             bool RedeemForBalanceAvailable           = false;
             bool WarModeEnabled                      = true;
-            bool CommunitiesEnabled                  = false;
+            bool CommunitiesEnabled                  = true;
             bool BnetGroupsEnabled                   = false;
-            bool CharacterCommunitiesEnabled         = false;
+            bool CharacterCommunitiesEnabled         = true;
             bool ClubPresenceAllowSubscribeAll       = false;
             bool VoiceChatParentalDisabled           = false;
             bool VoiceChatParentalMuted              = false;
             bool QuestSessionEnabled                 = false;
             bool IsChatMuted                         = false;
-            bool ClubFinderEnabled                   = false;
-            bool CommunityFinderEnabled              = false;
+            bool ClubFinderEnabled                   = true;
+            bool CommunityFinderEnabled              = true;
             bool BrowserCrashReporterEnabled         = false;
             bool SpeakForMeAllowed                   = false;
             bool DoesAccountNeedAADCPrompt           = false;
@@ -178,7 +178,7 @@ namespace WorldPackets
             bool PetHappinessEnabled                 = true;  // classic only
             bool GuildEventsEditsEnabled             = true;
             bool GuildTradeSkillsEnabled             = true;
-            bool IsAccountCurrencyTransferEnabled    = false;
+            bool IsAccountCurrencyTransferEnabled    = true;
             bool NetEaseChatTelemetryEnabled         = false;
             bool LobbyMatchmakerQueueFromMainlineEnabled = false;
             bool CanSendLobbyMatchmakerPartyCustomizations = false;
@@ -217,18 +217,18 @@ namespace WorldPackets
 
             WorldPacket const* Write() override;
 
-            bool BpayStoreAvailable                  = false; // NYI
+            bool BpayStoreAvailable                  = true; // NYI
             bool BpayStoreDisabledByParentalControls = false; // NYI
             bool CharUndeleteEnabled                 = false;
-            bool CommerceServerEnabled               = false; // NYI
+            bool CommerceServerEnabled               = true; // NYI
             bool PaidCharacterTransfersBetweenBnetAccountsEnabled = false;
             bool VeteranTokenRedeemWillKick          = false; // NYI
             bool WorldTokenRedeemWillKick            = false; // NYI
             bool ExpansionPreorderInStore            = false; // NYI
             bool KioskModeEnabled                    = false; // NYI
-            bool CompetitiveModeEnabled              = false; // NYI
-            bool BoostEnabled                        = false; // classic only
-            bool TrialBoostEnabled                   = false; // NYI
+            bool CompetitiveModeEnabled              = true; // NYI
+            bool BoostEnabled                        = true; // classic only
+            bool TrialBoostEnabled                   = true; // NYI
             bool RedeemForBalanceAvailable           = false; // NYI
             bool LiveRegionCharacterListEnabled      = false; // NYI
             bool LiveRegionCharacterCopyEnabled      = false; // NYI
@@ -253,10 +253,10 @@ namespace WorldPackets
             uint32 CommercePricePollTimeSeconds      = 0;     // NYI
             int64 RedeemForBalanceAmount             = 0;     // NYI
             int32 MaxCharactersOnThisRealm           = 0;
-            int32 ActiveBoostType                    = 0;     // NYI
-            int32 TrialBoostType                     = 0;     // NYI
-            int32 MinimumExpansionLevel              = 0;
-            int32 MaximumExpansionLevel              = 0;
+            int32 ActiveBoostType                    = 11;     // NYI
+            int32 TrialBoostType                     = 11;     // NYI
+            int32 MinimumExpansionLevel              = 10;
+            int32 MaximumExpansionLevel              = 11;
             uint32 KioskSessionDurationMinutes       = 0;
             int32 ContentSetID                       = 0;     // Currently active Classic season
             std::vector<GameModeData> DisabledGameModes;
