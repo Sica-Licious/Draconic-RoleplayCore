@@ -63,7 +63,7 @@ namespace WorldPackets
             Array<ChrCustomizationChoice, 250> Customizations;
             Optional<int32> TemplateSet;
             int32 TimerunningSeasonID = 0;
-            bool IsTrialBoost     = false;
+            bool IsTrialBoost     = true;
             bool UseNPE           = false;
             bool HardcoreSelfFound = false;
             std::string Name;

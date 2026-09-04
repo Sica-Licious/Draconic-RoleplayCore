@@ -5710,7 +5710,6 @@ void ActivePlayerData::WriteUpdate(Mask const& changesMask, ByteBuffer& data, Pl
             }
         }
     }
-    data.FlushBits();
     if (changesMask[0])
     {
         if (changesMask[11])
@@ -7713,6 +7712,10 @@ void VisualAnim::WriteUpdate(bool ignoreChangesMask, ByteBuffer& data, Player co
         {
             data.WriteBit(IsDecay);
         }
+    }
+    data.FlushBits();
+    if (changesMask[0])
+    {
         data.WriteBit(AnimationDataID.has_value());
     }
     data.FlushBits();
@@ -7726,10 +7729,6 @@ void VisualAnim::WriteUpdate(bool ignoreChangesMask, ByteBuffer& data, Player co
         {
             data << uint32(ServerTime);
         }
-    }
-    data.FlushBits();
-    if (changesMask[0])
-    {
         if (changesMask[2])
         {
             if (AnimationDataID.has_value())
@@ -8248,10 +8247,8 @@ void AreaTriggerDisk::ClearChangesMask()
 
 void AreaTriggerBoundedPlane::WriteCreate(ByteBuffer& data, Player const* receiver, AreaTrigger const* owner) const
 {
-    data << float(ExtentsX);
-    data << float(ExtentsY);
-    data << float(ExtentsTargetX);
-    data << float(ExtentsTargetY);
+    data << *Extents;
+    data << *ExtentsTarget;
 }
 
 void AreaTriggerBoundedPlane::WriteUpdate(bool ignoreChangesMask, ByteBuffer& data, Player const* receiver, AreaTrigger const* owner) const
@@ -8260,36 +8257,26 @@ void AreaTriggerBoundedPlane::WriteUpdate(bool ignoreChangesMask, ByteBuffer& da
     if (ignoreChangesMask)
         changesMask.SetAll();
 
-    data.WriteBits(changesMask.GetBlock(0), 5);
+    data.WriteBits(changesMask.GetBlock(0), 3);
 
     data.FlushBits();
     if (changesMask[0])
     {
         if (changesMask[1])
         {
-            data << float(ExtentsX);
+            data << *Extents;
         }
         if (changesMask[2])
         {
-            data << float(ExtentsY);
-        }
-        if (changesMask[3])
-        {
-            data << float(ExtentsTargetX);
-        }
-        if (changesMask[4])
-        {
-            data << float(ExtentsTargetY);
+            data << *ExtentsTarget;
         }
     }
 }
 
 void AreaTriggerBoundedPlane::ClearChangesMask()
 {
-    Base::ClearChangesMask(ExtentsX);
-    Base::ClearChangesMask(ExtentsY);
-    Base::ClearChangesMask(ExtentsTargetX);
-    Base::ClearChangesMask(ExtentsTargetY);
+    Base::ClearChangesMask(Extents);
+    Base::ClearChangesMask(ExtentsTarget);
     _changesMask.ResetAll();
 }
 

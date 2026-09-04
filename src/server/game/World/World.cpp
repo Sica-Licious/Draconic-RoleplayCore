@@ -768,6 +768,7 @@ void World::LoadConfigSettings(bool reload)
         { .Name = "StartDemonHunterPlayerLevel"sv, .DefaultValue = 8, .Index = CONFIG_START_DEMON_HUNTER_PLAYER_LEVEL, .Min = 1 },
         { .Name = "StartEvokerPlayerLevel"sv, .DefaultValue = 10, .Index = CONFIG_START_EVOKER_PLAYER_LEVEL, .Min = 1 },
         { .Name = "StartAlliedRacePlayerLevel"sv, .DefaultValue = 10, .Index = CONFIG_START_ALLIED_RACE_LEVEL, .Min = 1 },
+        {.Name = "CharacterCreating.TrialBoostLevel"sv, .DefaultValue = 70, .Index = CONFIG_CHARACTER_CREATING_TRIAL_BOOST_LEVEL, .Min = 1, .Max = MAX_LEVEL },
         { .Name = "Currency.ResetHour"sv, .DefaultValue = 3, .Index = CONFIG_CURRENCY_RESET_HOUR, .Min = 0, .Max = 23 },
         { .Name = "Currency.ResetDay"sv, .DefaultValue = 3, .Index = CONFIG_CURRENCY_RESET_DAY, .Min = 0, .Max = 6 },
         { .Name = "Currency.ResetInterval"sv, .DefaultValue = 7, .Index = CONFIG_CURRENCY_RESET_INTERVAL, .Min = 1 },
