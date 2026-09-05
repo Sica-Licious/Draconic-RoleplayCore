@@ -27,6 +27,12 @@ void AddSC_harandar_chapter_1_of_caves_and_cradles();
 void AddSC_boss_kystia_manaheart();
 void AddSC_instance_murder_row();
 
+// Maisara Caverns  
+void AddSC_instance_maisara_caverns();  
+void AddSC_boss_murojin_and_nekraxx();
+void AddSC_boss_vordaza();
+void AddSC_boss_raktul();  
+
 // The name of this function should match:
 // void Add${NameOfDirectory}Scripts()
 void AddQuelThalasScripts()
@@ -40,4 +46,10 @@ void AddQuelThalasScripts()
     // Murder Row
     AddSC_boss_kystia_manaheart();
     AddSC_instance_murder_row();
+	
+	// Maisara Caverns  
+	AddSC_instance_maisara_caverns();  
+	AddSC_boss_murojin_and_nekraxx();
+	AddSC_boss_vordaza();
+	AddSC_boss_raktul();
 }
