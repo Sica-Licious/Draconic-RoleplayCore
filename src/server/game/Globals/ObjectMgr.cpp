@@ -4080,6 +4080,25 @@ void ObjectMgr::LoadPlayerInfo()
         }
     }
 
+    TC_LOG_INFO("server.loading", "Loading Player Create Trial Boost Items Data...");
+    {
+        QueryResult result = WorldDatabase.Query("SELECT race, class, itemid, amount FROM playercreateinfo_trial_boost_item");
+        if (result)
+        {
+            do
+            {
+                Field* fields = result->Fetch();
+                uint32 current_race = fields[0].GetUInt8();
+                uint32 current_class = fields[1].GetUInt8();
+                uint32 item_id = fields[2].GetUInt32();
+                uint32 amount = fields[3].GetUInt32();
+
+                if (auto const& playerInfo = Trinity::Containers::MapGetValuePtr(_playerInfo, { Races(current_race), Classes(current_class) }))
+                    playerInfo->boostItem.emplace_back(item_id, amount);
+            } while (result->NextRow());
+        }
+    }
+
     // Load playercreate skills
     TC_LOG_INFO("server.loading", "Loading Player Create Skill Data...");
     {

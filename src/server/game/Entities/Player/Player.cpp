@@ -431,7 +431,12 @@ bool Player::Create(ObjectGuid::LowType guidlow, WorldPackets::Character::Charac
         return false;
     }
 
-    PlayerInfo::CreatePosition const& position = createInfo->UseNPE && info->createPositionNPE ? *info->createPositionNPE : info->createPosition;
+    PlayerInfo::CreatePosition boostPosition;
+    boostPosition.Loc.WorldRelocate(2552, 2663.1f, -2587.58f, 219.653f, 3.13936f);
+
+    PlayerInfo::CreatePosition const& position = createInfo->IsTrialBoost
+        ? boostPosition
+        : (createInfo->UseNPE && info->createPositionNPE ? *info->createPositionNPE : info->createPosition);
 
     m_createTime = GameTime::GetGameTime();
     m_createMode = createInfo->UseNPE && info->createPositionNPE ? PlayerCreateMode::NPE : PlayerCreateMode::Normal;
@@ -487,14 +492,15 @@ bool Player::Create(ObjectGuid::LowType guidlow, WorldPackets::Character::Charac
     SetNativeGender(Gender(createInfo->Sex));
 
     // set starting level  
-	uint8 startLevel = GetStartLevel(createInfo->Race, createInfo->Class, createInfo->TemplateSet);
-	if (createInfo->IsTrialBoost)
-	{
-		startLevel = sWorld->getIntConfig(CONFIG_CHARACTER_CREATING_TRIAL_BOOST_LEVEL);
-		SetPlayerLocalFlag(PLAYER_LOCAL_FLAG_NEWLY_BOOSTED_CHARACTER);
-		SetHasLevelBoosted();
-	}
-	SetLevel(startLevel, false);
+    uint8 startLevel = GetStartLevel(createInfo->Race, createInfo->Class, createInfo->TemplateSet);
+    if (createInfo->IsTrialBoost)
+    {
+        startLevel = sWorld->getIntConfig(CONFIG_CHARACTER_CREATING_TRIAL_BOOST_LEVEL);
+        SetPlayerLocalFlag(PLAYER_LOCAL_FLAG_NEWLY_BOOSTED_CHARACTER);
+        SetHasLevelBoosted();
+    }
+    SetLevel(startLevel, false);
+
     InitRunes();
 
     SetUpdateFieldValue(m_values.ModifyValue(&Player::m_activePlayerData).ModifyValue(&UF::ActivePlayerData::Coinage), GetStartMoney(createInfo->Race, createInfo->Class));
@@ -535,27 +541,33 @@ bool Player::Create(ObjectGuid::LowType guidlow, WorldPackets::Character::Charac
 
     EquipTransmogOutfit(0, TransmogSituationTrigger::Manual, false);
 
-    // original items
-    for (PlayerCreateInfoItem initialItem : info->item)
-        StoreNewItemInBestSlots(initialItem.item_id, initialItem.item_amount, info->itemContext);
+    // original items  
+    if (createInfo->IsTrialBoost)
+    {
+        for (PlayerCreateInfoItem const& boostItem : info->boostItem)
+            StoreNewItemInBestSlots(boostItem.item_id, boostItem.item_amount, info->itemContext);
+    }
+    else
+    {
+        for (PlayerCreateInfoItem initialItem : info->item)
+            StoreNewItemInBestSlots(initialItem.item_id, initialItem.item_amount, info->itemContext);
+    }
 
-    // bags and main-hand weapon must equipped at this moment
-    // now second pass for not equipped (offhand weapon/shield if it attempt equipped before main-hand weapon)
-    // or ammo not equipped in special bag
+    // bags and main-hand weapon must equipped at this moment  
+    // now second pass for not equipped (offhand weapon/shield if it attempt equipped before main-hand weapon)  
+    // or ammo not equipped in special bag  
     uint8 inventoryEnd = INVENTORY_SLOT_ITEM_START + GetInventorySlotCount();
     for (uint8 i = INVENTORY_SLOT_ITEM_START; i < inventoryEnd; i++)
     {
         if (Item* pItem = GetItemByPos(INVENTORY_SLOT_BAG_0, i))
         {
             uint16 eDest;
-            // equip offhand weapon/shield if it attempt equipped before main-hand weapon
             InventoryResult msg = CanEquipItem(NULL_SLOT, eDest, pItem, false);
             if (msg == EQUIP_ERR_OK)
             {
                 RemoveItem(INVENTORY_SLOT_BAG_0, i, true);
                 EquipItem(eDest, pItem, true);
             }
-            // move other items to more appropriate slots
             else
             {
                 ItemPosCountVec sDest;
@@ -15716,23 +15728,19 @@ void Player::RewardQuestPackage(uint32 questPackageId, ItemContext context, uint
     {
         for (QuestPackageItemEntry const* questPackageItem : *questPackageItems)
         {
-            if (onlyItemId && questPackageItem->ItemID == int32(onlyItemId))
+            if (onlyItemId && questPackageItem->ItemID != int32(onlyItemId))
+                continue;
+
+            if (CanSelectQuestPackageItem(questPackageItem))
             {
-                if (CanSelectQuestPackageItem(questPackageItem))
+                hasFilteredQuestPackageReward = true;
+                ItemPosCountVec dest;
+                if (CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, questPackageItem->ItemID, questPackageItem->ItemQuantity) == EQUIP_ERR_OK)
                 {
-                    hasFilteredQuestPackageReward = true;
-                    ItemPosCountVec dest;
-                    if (CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, questPackageItem->ItemID, questPackageItem->ItemQuantity) == EQUIP_ERR_OK)
-                    {
-                        Item* item = StoreNewItem(dest, questPackageItem->ItemID, true, GenerateItemRandomBonusListId(questPackageItem->ItemID), {}, context);
-                        SendNewItem(item, questPackageItem->ItemQuantity, true, false);
-                        continue;
-                    }
+                    Item* item = StoreNewItem(dest, questPackageItem->ItemID, true, GenerateItemRandomBonusListId(questPackageItem->ItemID), {}, context);
+                    SendNewItem(item, questPackageItem->ItemQuantity, true, false);
                 }
             }
-
-            // Unlock the item appearance for the other reward items as well of possible
-            GetSession()->GetCollectionMgr()->AddItemAppearance(questPackageItem->ItemID);
         }
     }
 
@@ -15870,20 +15878,14 @@ void Player::RewardQuest(Quest const* quest, LootItemType rewardType, uint32 rew
             {
                 for (uint32 i = 0; i < QUEST_REWARD_CHOICES_COUNT; ++i)
                 {
-                    if (quest->RewardChoiceItemId[i] && quest->RewardChoiceItemType[i] == LootItemType::Item)
+                    if (quest->RewardChoiceItemId[i] && quest->RewardChoiceItemType[i] == LootItemType::Item && quest->RewardChoiceItemId[i] == rewardId)
                     {
-                        if (quest->RewardChoiceItemId[i] == rewardId)
+                        ItemPosCountVec dest;
+                        if (CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, rewardId, quest->RewardChoiceItemCount[i]) == EQUIP_ERR_OK)
                         {
-                            ItemPosCountVec dest;
-                            if (CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, rewardId, quest->RewardChoiceItemCount[i]) == EQUIP_ERR_OK)
-                            {
-                                Item* item = StoreNewItem(dest, rewardId, true, GenerateItemRandomBonusListId(rewardId), {}, ItemContext::Quest_Reward);
-                                SendNewItem(item, quest->RewardChoiceItemCount[i], true, false);
-                            }
+                            Item* item = StoreNewItem(dest, rewardId, true, GenerateItemRandomBonusListId(rewardId), {}, ItemContext::Quest_Reward);
+                            SendNewItem(item, quest->RewardChoiceItemCount[i], true, false);
                         }
-
-                        // Add the remaining item appearances for the quest if possible
-                        GetSession()->GetCollectionMgr()->AddItemAppearance(quest->RewardChoiceItemId[i]);
                     }
                 }
             }
@@ -20563,7 +20565,9 @@ void Player::_LoadQuestStatusRewarded(PreparedQueryResult result)
 
                 if (std::vector<QuestPackageItemEntry const*> const* questPackageItems = sDB2Manager.GetQuestPackageItems(quest->GetQuestPackageID()))
                     for (QuestPackageItemEntry const* questPackageItem : *questPackageItems)
-                        GetSession()->GetCollectionMgr()->AddItemAppearance(questPackageItem->ItemID);
+                        if (ItemTemplate const* rewardProto = sObjectMgr->GetItemTemplate(questPackageItem->ItemID))
+                            if (rewardProto->ItemSpecClassMask & GetClassMask())
+                                GetSession()->GetCollectionMgr()->AddItemAppearance(questPackageItem->ItemID);
 
                 if (quest->CanIncreaseRewardedQuestCounters())
                     m_RewardedQuests.insert(quest_id);

@@ -663,6 +663,7 @@ struct PlayerInfo
 
     ItemContext itemContext;
     PlayerCreateInfoItems item;
+    PlayerCreateInfoItems boostItem;      // <-- add this  
     PlayerCreateInfoSpells customSpells;
     PlayerCreateInfoSpells castSpells[size_t(PlayerCreateMode::Max)];
     PlayerCreateInfoActions action;
@@ -672,7 +673,7 @@ struct PlayerInfo
     Optional<uint32> introSceneId;
     Optional<uint32> introSceneIdNPE;
 
-    //[level-1] 0..MaxPlayerLevel-1
+    //[level-1] 0..MaxPlayerLevel-1  
     std::unique_ptr<PlayerLevelInfo[]> levelInfo;
 };
 
