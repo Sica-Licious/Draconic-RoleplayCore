@@ -28,6 +28,8 @@ void AddSC_CustomEffectCommands();
 void AddSC_toy_spell_scripts();
 void AddSC_npc_perks_program_vendor();
 
+void AddSC_follower_dungeon_scripts();
+
 // The name of this function should match:
 // void Add${NameOfDirectory}Scripts()
 void AddCustomScripts()
@@ -42,4 +44,5 @@ void AddCustomScripts()
     AddSC_CustomEffectHandler();
     AddSC_CustomEffectCommands();
     AddSC_npc_perks_program_vendor();
+	AddSC_follower_dungeon_scripts();
 }
