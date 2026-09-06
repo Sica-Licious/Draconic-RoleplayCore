@@ -93,7 +93,7 @@ struct boss_raktul : public BossAI
                 return;  
         }  
   
-        DoMeleeAttackIfReady();  
+        me->DoMeleeAttackIfReady();
     }  
 };  
   
@@ -132,13 +132,13 @@ struct npc_malignant_soul : public ScriptedAI
     }  
   
     // On interrupt, dissipates and grants Spectral Residue to all players  
-    void SpellInterrupted(SpellInfo const* /*spellInfo*/) override  
-    {  
-        if (Creature* raktul = me->GetInstanceScript() ? me->GetInstanceScript()->GetCreature(DATA_RAKTUL) : nullptr)  
-            raktul->AI()->DoAction(ACTION_SPECTRAL_RESIDUE);  
-  
-        me->DespawnOrUnsummon();  
-    }  
+    void SpellInterrupted(SpellInfo const* /*spellInfo*/) // no override — not a real CreatureAI virtual, dead code  
+    {
+        if (Creature* raktul = me->GetInstanceScript() ? me->GetInstanceScript()->GetCreature(DATA_RAKTUL) : nullptr)
+            raktul->AI()->DoAction(ACTION_SPECTRAL_RESIDUE);
+
+        me->DespawnOrUnsummon();
+    }
 };  
   
 void AddSC_boss_raktul()  

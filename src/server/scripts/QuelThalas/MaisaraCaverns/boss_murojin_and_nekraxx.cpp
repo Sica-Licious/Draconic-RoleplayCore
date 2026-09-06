@@ -90,7 +90,7 @@ struct boss_murojin : public BossAI
                 return;  
         }  
   
-        DoMeleeAttackIfReady();  
+        me->DoMeleeAttackIfReady();
     }  
 };  
   
@@ -148,7 +148,7 @@ struct boss_nekraxx : public BossAI
                 return;  
         }  
   
-        DoMeleeAttackIfReady();  
+        me->DoMeleeAttackIfReady();
     }  
 };  
   
