@@ -501,23 +501,74 @@ public:
 private:
     void SpawnFollowers(Player* player)
     {
-        // Basic example: spawn one of each follower
-        // You can replace this with your FollowerPool logic
+        bool isTank = sLFGMgr->GetRoles(player->GetGUID()) & lfg::PLAYER_ROLE_TANK;
+        bool isHealer = sLFGMgr->GetRoles(player->GetGUID()) & lfg::PLAYER_ROLE_HEALER;
+        bool isDps = sLFGMgr->GetRoles(player->GetGUID()) & lfg::PLAYER_ROLE_DAMAGE;
 
-        // Garrick (Tank)
-        player->SummonCreature(161504, *player, TEMPSUMMON_MANUAL_DESPAWN);
+        uint8 maxHelpers = 4;
 
-        // Crenna (Healer)
-        player->SummonCreature(161505, *player, TEMPSUMMON_MANUAL_DESPAWN);
+        // If 2 players are in the group, spawn only 3 helpers
+        if (Group* group = player->GetGroup())
+            if (group->GetMembersCount() == 2)
+                maxHelpers = 3;
 
-        // Meredy (Mage)
-        player->SummonCreature(161506, *player, TEMPSUMMON_MANUAL_DESPAWN);
+        // Role-based composition
+        uint8 needTank = 0;
+        uint8 needHealer = 0;
+        uint8 needDps = 0;
 
-        // Austin (Hunter)
-        player->SummonCreature(209070, *player, TEMPSUMMON_MANUAL_DESPAWN);
+        if (isTank)
+        {
+            needTank = 0;
+            needHealer = 1;
+            needDps = 3;
+        }
+        else if (isHealer)
+        {
+            needTank = 1;
+            needHealer = 0;
+            needDps = 3;
+        }
+        else // DPS
+        {
+            needTank = 1;
+            needHealer = 1;
+            needDps = 2;
+        }
 
-        // Wrathion (Shaman)
-        player->SummonCreature(209071, *player, TEMPSUMMON_MANUAL_DESPAWN);
+        // Spawn tank
+        if (needTank > 0)
+        {
+            player->SummonCreature(161504, *player, TEMPSUMMON_MANUAL_DESPAWN); // Garrick
+            needTank--;
+        }
+
+        // Spawn healer
+        if (needHealer > 0)
+        {
+            player->SummonCreature(161505, *player, TEMPSUMMON_MANUAL_DESPAWN); // Crenna
+            needHealer--;
+        }
+
+        // Spawn DPS
+        while (needDps > 0)
+        {
+            // Cycle through your DPS followers
+            switch (needDps)
+            {
+            case 3:
+                player->SummonCreature(161506, *player, TEMPSUMMON_MANUAL_DESPAWN); // Meredy
+                break;
+            case 2:
+                player->SummonCreature(209070, *player, TEMPSUMMON_MANUAL_DESPAWN); // Austin
+                break;
+            case 1:
+                player->SummonCreature(209071, *player, TEMPSUMMON_MANUAL_DESPAWN); // Wrathion
+                break;
+            }
+
+            needDps--;
+        }
     }
 };
 
