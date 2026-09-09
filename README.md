@@ -15,7 +15,7 @@
 * [Authors &amp; Contributors](#authors--contributors)
 * [Links](#links)
 
-
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Sica-Licious/Draconic-RoleplayCore)
 
 ## Build Status
 
