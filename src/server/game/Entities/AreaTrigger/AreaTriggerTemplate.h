@@ -59,19 +59,14 @@ enum AreaTriggerActionUserTypes
 
 enum class AreaTriggerCreatePropertiesFlag : uint32
 {
-    None                           = 0x00000,
-    HasAbsoluteOrientation         = 0x00001,
-    HasDynamicShape                = 0x00002, // DEPRECATED
-    HasAttached                    = 0x00004, // DEPRECATED
-    HasFaceMovementDir             = 0x00008, // NYI
-    HasFollowsTerrain              = 0x00010, // NYI
-    AlwaysExterior                 = 0x00020,
-    HasTargetRollPitchYaw          = 0x00040, // NYI
-    HasAnimId                      = 0x00080, // DEPRECATED
-    VisualAnimIsDecay              = 0x00100,
-    HasAnimKitId                   = 0x00200, // DEPRECATED
-    HasCircularMovement            = 0x00400, // DEPRECATED
-    Unk5                           = 0x00800,
+    None                           = 0x0000,
+    HeightIgnoresScale             = 0x0001,
+    VisualAnimIsDecay              = 0x0002,
+    AbsoluteOrientation            = 0x0004,
+    FaceMovementDir                = 0x0008, // NYI
+    FollowsTerrain                 = 0x0010, // NYI
+    AlwaysExterior                 = 0x0020,
+    UsesUnitRawFacing              = 0x0040  // NYI
 };
 
 DEFINE_ENUM_FLAG(AreaTriggerCreatePropertiesFlag);
@@ -181,13 +176,14 @@ struct AreaTriggerShapeInfo
 
     struct BoundedPlane
     {
-        BoundedPlane()
-            : Extents(), ExtentsTarget() { }
+        BoundedPlane() = default;
         explicit BoundedPlane(std::array<float, MAX_AREATRIGGER_ENTITY_DATA> const& raw)
-            : Extents(raw[0], raw[1]), ExtentsTarget(raw[2], raw[3]) { }
+            : ExtentsY(raw[0]), ExtentsZ(raw[1]), ExtentsTargetY(raw[2]), ExtentsTargetZ(raw[3]) { }
 
-        TaggedPosition<Position::XY> Extents;
-        TaggedPosition<Position::XY> ExtentsTarget;
+        float ExtentsY = 0.0f;
+        float ExtentsZ = 0.0f;
+        float ExtentsTargetY = 0.0f;
+        float ExtentsTargetZ = 0.0f;
 
         float GetMaxSearchRadius() const;
         bool IsDynamic() const;
@@ -261,6 +257,9 @@ public:
     bool SpeedIsTime = false;
     using SplineInfo = std::vector<Position>;
     std::variant<std::monostate, SplineInfo, AreaTriggerOrbitInfo> Movement;
+
+    TaggedPosition<Position::XYZ> RollPitchYaw;
+    Optional<TaggedPosition<Position::XYZ>> TargetRollPitchYaw;
 
     uint32 ScriptId = 0;
 };
