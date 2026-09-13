@@ -37,14 +37,14 @@ namespace WorldPackets
 
             WorldPacket const* Write() override;
 
-            int32 MythicPlusDisplaySeasonID = 0;
-            int32 MythicPlusMilestoneSeasonID = 0;
-            int32 PreviousArenaSeason = 0;
-            int32 CurrentArenaSeason = 0;
-            int32 PvpSeasonID = 0;
+            int32 MythicPlusDisplaySeasonID = 37;
+            int32 MythicPlusMilestoneSeasonID = 120;
+            int32 PreviousArenaSeason = 41;
+            int32 CurrentArenaSeason = 42;
+            int32 PvpSeasonID = 40;
             int32 ConquestWeeklyProgressCurrencyID = 0;
-            int32 Unknown1027_1 = 0;
-            bool WeeklyRewardChestsEnabled = false;
+            int32 Unknown1027_1 = 1091;
+            bool WeeklyRewardChestsEnabled = true;
             bool CurrentArenaSeasonUsesTeams = false;
             bool PreviousArenaSeasonUsesTeams = false;
         };

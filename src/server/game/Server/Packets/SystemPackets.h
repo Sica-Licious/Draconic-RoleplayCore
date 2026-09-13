@@ -227,8 +227,8 @@ namespace WorldPackets
             bool ExpansionPreorderInStore            = false; // NYI
             bool KioskModeEnabled                    = false; // NYI
             bool CompetitiveModeEnabled              = false; // NYI
-            bool BoostEnabled                        = false; // classic only
-            bool TrialBoostEnabled                   = false; // NYI
+            bool BoostEnabled                        = true; // classic only
+            bool TrialBoostEnabled                   = true; // NYI
             bool RedeemForBalanceAvailable           = false; // NYI
             bool LiveRegionCharacterListEnabled      = false; // NYI
             bool LiveRegionCharacterCopyEnabled      = false; // NYI
@@ -253,10 +253,10 @@ namespace WorldPackets
             uint32 CommercePricePollTimeSeconds      = 0;     // NYI
             int64 RedeemForBalanceAmount             = 0;     // NYI
             int32 MaxCharactersOnThisRealm           = 0;
-            int32 ActiveBoostType                    = 0;     // NYI
-            int32 TrialBoostType                     = 0;     // NYI
-            int32 MinimumExpansionLevel              = 0;
-            int32 MaximumExpansionLevel              = 0;
+            int32 ActiveBoostType                    = 11;     // NYI
+            int32 TrialBoostType                     = 11;     // NYI
+            int32 MinimumExpansionLevel              = 10;
+            int32 MaximumExpansionLevel              = 11;
             uint32 KioskSessionDurationMinutes       = 0;
             int32 ContentSetID                       = 0;     // Currently active Classic season
             std::vector<GameModeData> DisabledGameModes;
