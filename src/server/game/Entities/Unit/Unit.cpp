@@ -1873,22 +1873,7 @@ void Unit::HandleEmoteCommand(Emote emoteId, Player* target /*=nullptr*/, Trinit
 
     victimResistance = std::max(victimResistance, 0.0f);
 
-    // level-based resistance does not apply to binary spells, and cannot be overcome by spell penetration
-    // gameobject caster -- should it have level based resistance?
-    if (caster && caster->GetTypeId() != TYPEID_GAMEOBJECT && (!spellInfo || !spellInfo->HasAttribute(SPELL_ATTR0_CU_BINARY_SPELL)))
-        victimResistance += std::max((float(victim->GetLevelForTarget(caster)) - float(caster->GetLevelForTarget(victim))) * 5.0f, 0.0f);
-
-    static uint32 const bossLevel = 83;
-    static float const bossResistanceConstant = 510.0f;
-    uint32 level = caster ? victim->GetLevelForTarget(caster) : victim->GetLevel();
-    float resistanceConstant = 0.0f;
-
-    if (level == bossLevel)
-        resistanceConstant = bossResistanceConstant;
-    else
-        resistanceConstant = level * 5.0f;
-
-    return victimResistance / (victimResistance + resistanceConstant);
+    return victimResistance;
 }
 
 /*static*/ void Unit::CalcAbsorbResist(DamageInfo& damageInfo, Spell* spell /*= nullptr*/)
@@ -13607,7 +13592,7 @@ bool Unit::SetWalk(bool enable)
     return true;
 }
 
-bool Unit::SetDisableGravity(bool disable, bool updateAnimTier /*= true*/)
+bool Unit::SetDisableGravity(bool disable, bool updateAnimTier /*= true*/, bool updatePlayHoverAnim /*= true*/)
 {
     if (disable == IsGravityDisabled())
         return false;
@@ -13644,7 +13629,7 @@ bool Unit::SetDisableGravity(bool disable, bool updateAnimTier /*= true*/)
         SendMessageToSet(packet.Write(), true);
     }
 
-    if (!GetVehicle())
+    if (updatePlayHoverAnim && !GetVehicle())
     {
         if (IsAlive())
         {

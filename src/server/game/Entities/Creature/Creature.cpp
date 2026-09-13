@@ -418,6 +418,62 @@ void Creature::SetOutfit(std::shared_ptr<CreatureOutfit> const& outfit)
     }
 }
 
+void Creature::RevealOutfitForViewer(Player* viewer)
+{
+    if (!m_outfit || !viewer)
+        return;
+
+    if (!m_outfit->HasModelSwapCustomization())
+        return;
+
+    ObjectGuid guid = viewer->GetGUID();
+    if (_outfitRevealAt.count(guid) || _outfitRestorePending.count(guid))
+        return;
+
+    _outfitRevealAt[guid] = GameTime::GetGameTimeMS() + 1500;
+}
+
+void Creature::UpdateOutfitReveals()
+{
+    if (_outfitRevealAt.empty() && _outfitRestorePending.empty())
+        return;
+
+    uint32 now = GameTime::GetGameTimeMS();
+
+    for (ObjectGuid guid : _outfitRestorePending)
+    {
+        if (m_outfit)
+            if (Player* viewer = ObjectAccessor::FindPlayer(guid))
+                if (viewer->GetMap() == GetMap() && viewer->HaveAtClient(this))
+                {
+                    SetDisplayId(m_outfit->GetDisplayId());
+                    SendUpdateToPlayer(viewer);
+                }
+    }
+    _outfitRestorePending.clear();
+
+    for (auto itr = _outfitRevealAt.begin(); itr != _outfitRevealAt.end();)
+    {
+        if (now >= itr->second)
+        {
+            Player* viewer = ObjectAccessor::FindPlayer(itr->first);
+            if (m_outfit && viewer && viewer->GetMap() == GetMap() && viewer->HaveAtClient(this))
+            {
+                std::shared_ptr<CreatureOutfit> outfit = m_outfit;
+
+                SetDisplayId(CreatureOutfit::invisible_model);
+                m_outfit = std::move(outfit);
+                SendUpdateToPlayer(viewer);
+
+                _outfitRestorePending.insert(itr->first);
+            }
+            itr = _outfitRevealAt.erase(itr);
+        }
+        else
+            ++itr;
+    }
+}
+
 void Creature::SendMirrorSound(Player* target, uint8 type)
 {
     std::shared_ptr<CreatureOutfit> const& outfit = GetOutfit();
@@ -825,6 +881,8 @@ void Creature::ApplyAllStaticFlags(CreatureStaticFlagsHolder const& flags)
 
 void Creature::Update(uint32 diff)
 {
+    UpdateOutfitReveals();
+
 #ifdef _WIN32
     if (m_outfit && !m_values.HasChanged(GetUpdateFieldHolderIndex(&UF::UnitData::DisplayID)) && Unit::GetDisplayId() == CreatureOutfit::invisible_model)
 #else
@@ -2301,17 +2359,14 @@ float Creature::GetAttackDistance(Unit const* player) const
     float maxRadius = 45.0f * aggroRate;
     float minRadius = 5.0f * aggroRate;
 
-    int32 expansionMaxLevel = int32(GetMaxLevelForExpansion(GetCreatureTemplate()->RequiredExpansion));
+    int32 expansionMaxLevel = int32(GetMaxLevelForExpansion(GetCreatureDifficulty()->GetHealthScalingExpansion()));
     int32 playerLevel = player->GetLevelForTarget(this);
     int32 creatureLevel = GetLevelForTarget(player);
-    int32 levelDifference = creatureLevel - playerLevel;
 
-    // The aggro radius for creatures with equal level as the player is 20 yards.
+    // The aggro radius for creatures with equal level as the player is 15 yards.
     // The combatreach should not get taken into account for the distance so we drop it from the range (see Supremus as expample)
-    float baseAggroDistance = 20.0f - GetCombatReach();
-
-    // + - 1 yard for each level difference between player and creature
-    float aggroRadius = baseAggroDistance + float(levelDifference);
+    float baseAggroDistance = 15.0f - GetCombatReach();
+    float aggroRadius = baseAggroDistance;
 
     // detect range auras
     if (uint32(creatureLevel + 5) <= sWorld->getIntConfig(CONFIG_MAX_PLAYER_LEVEL))
@@ -2325,6 +2380,8 @@ float Creature::GetAttackDistance(Unit const* player) const
     // The following code is used for blizzlike behaviour such as skippable bosses
     if (creatureLevel > expansionMaxLevel)
         aggroRadius = baseAggroDistance + float(expansionMaxLevel - playerLevel);
+    else // + - 1 yard for each level difference between player and creature
+        aggroRadius += float(creatureLevel - playerLevel);
 
     // Make sure that we wont go over the total range limits
     if (aggroRadius > maxRadius)
@@ -3062,12 +3119,20 @@ Position Creature::GetRespawnPosition(float* dist) const
 void Creature::InitializeMovementCapabilities()
 {
     SetHover(GetMovementTemplate().IsHoverInitiallyEnabled());
-    SetDisableGravity(IsFloating());
-    SetControlled(IsSessile(), UNIT_STATE_ROOT);
 
-    // If an amphibious creatures was swimming while engaged, disable swimming again
-    if (IsAmphibious() && !_staticFlags.HasFlag(CREATURE_STATIC_FLAG_CAN_SWIM))
-        RemoveUnitFlag(UNIT_FLAG_CAN_SWIM);
+    // CREATURE_STATIC_FLAG_FLOATING disables gravity and plays hover anim
+    UpdateFloatingMovementFlags();
+
+    // CREATURE_STATIC_FLAG_SESSILE disables gravity and applies root
+    UpdateSessileMovementFlags();
+
+    if (CanOnlySwimIfTargetSwims())
+    {
+        SetUnitFlag2(UNIT_FLAG2_AI_WILL_ONLY_SWIM_IF_TARGET_SWIMS);
+        SetSwim(false);
+    }
+    else
+        RemoveUnitFlag2(UNIT_FLAG2_AI_WILL_ONLY_SWIM_IF_TARGET_SWIMS);
 
     UpdateMovementCapabilities();
 }
@@ -3084,12 +3149,66 @@ void Creature::UpdateMovementCapabilities()
     if (!isInAir)
         RemoveUnitMovementFlag(MOVEMENTFLAG_FALLING);
 
-    // Some Amphibious creatures toggle swimming while engaged
-    if (IsAmphibious() && !HasUnitFlag(UNIT_FLAG_CANT_SWIM) && !HasUnitFlag(UNIT_FLAG_CAN_SWIM) && IsEngaged())
-        if (!CanOnlySwimIfTargetSwims() || (GetVictim() && !GetVictim()->IsOnOceanFloor()))
-            SetUnitFlag(UNIT_FLAG_CAN_SWIM);
+    if (HasUnitFlag2(UNIT_FLAG2_AI_WILL_ONLY_SWIM_IF_TARGET_SWIMS))
+        if (GetVictim() && GetVictim()->IsInWater() && !GetVictim()->IsOnOceanFloor())
+            RemoveUnitFlag2(UNIT_FLAG2_AI_WILL_ONLY_SWIM_IF_TARGET_SWIMS);
 
-    SetSwim(IsInWater() && CanSwim());
+    if (IsInWater() && CanSwim())
+        SetSwim(true);
+    else if (!IsInWater()) // We do not want to disable swimming again when a creature is in water - may to lead some nasty bugs
+        SetSwim(false);
+}
+
+void Creature::SetFloating(bool floating)
+{
+    _staticFlags.ApplyFlag(CREATURE_STATIC_FLAG_FLOATING, floating);
+    UpdateFloatingMovementFlags();
+}
+
+void Creature::UpdateFloatingMovementFlags()
+{
+    if (IsFloating())
+        SetDisableGravity(true, false);
+    else
+    {
+        if (IsSessile() ||
+            HasAuraType(SPELL_AURA_MOD_ROOT_DISABLE_GRAVITY) ||
+            HasAuraType(SPELL_AURA_MOD_STUN_DISABLE_GRAVITY) ||
+            HasAuraType(SPELL_AURA_DISABLE_GRAVITY))
+            return;
+
+        SetDisableGravity(false, false);
+    }
+}
+
+void Creature::SetSessile(bool sessile)
+{
+    _staticFlags.ApplyFlag(CREATURE_STATIC_FLAG_SESSILE, sessile);
+    UpdateSessileMovementFlags();
+}
+
+void Creature::UpdateSessileMovementFlags()
+{
+    if (IsSessile())
+    {
+        SetControlled(true, UNIT_STATE_ROOT);
+        SetDisableGravity(true, false, false);
+    }
+    else
+    {
+        if (!HasAuraType(SPELL_AURA_MOD_ROOT_DISABLE_GRAVITY))
+            return;
+
+        if (!HasAuraType(SPELL_AURA_MOD_ROOT))
+            SetControlled(false, UNIT_STATE_ROOT);
+
+        if (IsFloating() ||
+            HasAuraType(SPELL_AURA_MOD_STUN_DISABLE_GRAVITY) ||
+            HasAuraType(SPELL_AURA_DISABLE_GRAVITY))
+            return;
+
+        SetDisableGravity(false, false, false);
+    }
 }
 
 CreatureMovementData const& Creature::GetMovementTemplate() const
@@ -3573,10 +3692,18 @@ void Creature::SetPetitioner(bool apply)
 // overwrite WorldObject function for proper name localization
 std::string Creature::GetNameForLocaleIdx(LocaleConstant locale) const
 {
+    bool const female = GetGender() == GENDER_FEMALE;
+
     if (locale != DEFAULT_LOCALE)
         if (CreatureLocale const* cl = sObjectMgr->GetCreatureLocale(GetEntry()))
-            if (cl->Name.size() > locale && !cl->Name[locale].empty())
-                return cl->Name[locale];
+        {
+            std::vector<std::string> const& names = female ? cl->NameAlt : cl->Name;
+            if (names.size() > locale && !names[locale].empty())
+                return names[locale];
+        }
+
+    if (female && !GetCreatureTemplate()->FemaleName.empty())
+        return GetCreatureTemplate()->FemaleName;
 
     return GetName();
 }

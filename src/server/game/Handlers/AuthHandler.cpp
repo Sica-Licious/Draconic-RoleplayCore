@@ -108,7 +108,7 @@ void WorldSession::SendSetTimeZoneInformation()
 void WorldSession::SendFeatureSystemStatusGlueScreen()
 {
     WorldPackets::System::FeatureSystemStatusGlueScreen features;
-    features.BpayStoreAvailable = false;
+    features.BpayStoreAvailable = true;
     features.BpayStoreDisabledByParentalControls = false;
     features.CharUndeleteEnabled = sWorld->getBoolConfig(CONFIG_FEATURE_SYSTEM_CHARACTER_UNDELETE_ENABLED);
     features.MaxCharactersOnThisRealm = sWorld->getIntConfig(CONFIG_CHARACTERS_PER_REALM);

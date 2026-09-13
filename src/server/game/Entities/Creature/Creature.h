@@ -29,6 +29,8 @@
 
 class CreatureOutfit;
 #include <memory>
+#include <unordered_map>
+#include <unordered_set>
 
 class CreatureAI;
 class CreatureGroup;
@@ -101,6 +103,8 @@ class TC_GAME_API Creature : public Unit, public GridObject<Creature>, public Ma
         void SetOutfit(std::shared_ptr<CreatureOutfit> const& outfit);
         void SetMirrorImageFlag(bool on) { if (on) SetUnitFlag2(UNIT_FLAG2_MIRROR_IMAGE); else RemoveUnitFlag2(UNIT_FLAG2_MIRROR_IMAGE); };
         void SendMirrorSound(Player* target, uint8 type);
+        void RevealOutfitForViewer(Player* viewer);
+        void UpdateOutfitReveals();
 
         void DisappearAndDie() { ForcedDespawn(0); }
 
@@ -150,11 +154,17 @@ class TC_GAME_API Creature : public Unit, public GridObject<Creature>, public Ma
 
         // Returns true if CREATURE_STATIC_FLAG_FLOATING is set which is  disabling the gravity of the creature on spawn and reset
         bool IsFloating() const { return _staticFlags.HasFlag(CREATURE_STATIC_FLAG_FLOATING); }
-        void SetFloating(bool floating) { _staticFlags.ApplyFlag(CREATURE_STATIC_FLAG_FLOATING, floating); SetDisableGravity(floating); }
+        void SetFloating(bool floating);
+
+        // Enables or disables gravity and starts playing hover animations depending on wether CREATURE_STATIC_FLAG_FLOATING is set or not
+        void UpdateFloatingMovementFlags();
 
         // Returns true if CREATURE_STATIC_FLAG_SESSILE is set which permanently roots the creature in place
         bool IsSessile() const { return _staticFlags.HasFlag(CREATURE_STATIC_FLAG_SESSILE); }
-        void SetSessile(bool sessile) { _staticFlags.ApplyFlag(CREATURE_STATIC_FLAG_SESSILE, sessile); SetControlled(sessile, UNIT_STATE_ROOT); }
+        void SetSessile(bool sessile);
+
+        // Enables or disables gravity and root movement flags depending on wether CREATURE_STATIC_FLAG_SESSILE is set or not
+        void UpdateSessileMovementFlags();
 
         // Returns true if CREATURE_STATIC_FLAG_3_CANNOT_PENETRATE_WATER is set which does not allow the creature to go below liquid surfaces
         bool CannotPenetrateWater() const { return _staticFlags.HasFlag(CREATURE_STATIC_FLAG_3_CANNOT_PENETRATE_WATER); }
@@ -614,6 +624,8 @@ class TC_GAME_API Creature : public Unit, public GridObject<Creature>, public Ma
         } _spellFocusInfo;
 		
 		std::shared_ptr<CreatureOutfit> m_outfit;
+		std::unordered_map<ObjectGuid, uint32> _outfitRevealAt;
+		std::unordered_set<ObjectGuid> _outfitRestorePending;
 
         time_t _lastDamagedTime; // Part of Evade mechanics
         CreatureTextRepeatGroup m_textRepeat;

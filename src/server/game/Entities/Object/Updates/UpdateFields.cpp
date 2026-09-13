@@ -5710,6 +5710,7 @@ void ActivePlayerData::WriteUpdate(Mask const& changesMask, ByteBuffer& data, Pl
             }
         }
     }
+    data.FlushBits();
     if (changesMask[0])
     {
         if (changesMask[11])
@@ -7712,10 +7713,6 @@ void VisualAnim::WriteUpdate(bool ignoreChangesMask, ByteBuffer& data, Player co
         {
             data.WriteBit(IsDecay);
         }
-    }
-    data.FlushBits();
-    if (changesMask[0])
-    {
         data.WriteBit(AnimationDataID.has_value());
     }
     data.FlushBits();
@@ -7729,6 +7726,10 @@ void VisualAnim::WriteUpdate(bool ignoreChangesMask, ByteBuffer& data, Player co
         {
             data << uint32(ServerTime);
         }
+    }
+    data.FlushBits();
+    if (changesMask[0])
+    {
         if (changesMask[2])
         {
             if (AnimationDataID.has_value())
@@ -8247,8 +8248,10 @@ void AreaTriggerDisk::ClearChangesMask()
 
 void AreaTriggerBoundedPlane::WriteCreate(ByteBuffer& data, Player const* receiver, AreaTrigger const* owner) const
 {
-    data << *Extents;
-    data << *ExtentsTarget;
+    data << float(ExtentsY);
+    data << float(ExtentsZ);
+    data << float(ExtentsTargetY);
+    data << float(ExtentsTargetZ);
 }
 
 void AreaTriggerBoundedPlane::WriteUpdate(bool ignoreChangesMask, ByteBuffer& data, Player const* receiver, AreaTrigger const* owner) const
@@ -8257,26 +8260,36 @@ void AreaTriggerBoundedPlane::WriteUpdate(bool ignoreChangesMask, ByteBuffer& da
     if (ignoreChangesMask)
         changesMask.SetAll();
 
-    data.WriteBits(changesMask.GetBlock(0), 3);
+    data.WriteBits(changesMask.GetBlock(0), 5);
 
     data.FlushBits();
     if (changesMask[0])
     {
         if (changesMask[1])
         {
-            data << *Extents;
+            data << float(ExtentsY);
         }
         if (changesMask[2])
         {
-            data << *ExtentsTarget;
+            data << float(ExtentsZ);
+        }
+        if (changesMask[3])
+        {
+            data << float(ExtentsTargetY);
+        }
+        if (changesMask[4])
+        {
+            data << float(ExtentsTargetZ);
         }
     }
 }
 
 void AreaTriggerBoundedPlane::ClearChangesMask()
 {
-    Base::ClearChangesMask(Extents);
-    Base::ClearChangesMask(ExtentsTarget);
+    Base::ClearChangesMask(ExtentsY);
+    Base::ClearChangesMask(ExtentsZ);
+    Base::ClearChangesMask(ExtentsTargetY);
+    Base::ClearChangesMask(ExtentsTargetZ);
     _changesMask.ResetAll();
 }
 
@@ -8287,14 +8300,14 @@ void AreaTriggerData::WriteCreate(EnumFlag<UpdateFieldFlag> fieldVisibilityFlags
     OverrideMoveCurveX->WriteCreate(data, receiver, owner);
     OverrideMoveCurveY->WriteCreate(data, receiver, owner);
     OverrideMoveCurveZ->WriteCreate(data, receiver, owner);
-    OverrideFacingCurve->WriteCreate(data, receiver, owner);
+    OverrideShapeCurve->WriteCreate(data, receiver, owner);
     data << *Caster;
     data << uint32(Duration);
     data << uint32(TimeToTarget);
     data << uint32(TimeToTargetScale);
     data << uint32(TimeToTargetExtraScale);
     data << uint32(TimeToTargetPos);
-    data << uint32(TimeToTargetFacing);
+    data << uint32(TimeToTargetShape);
     data << int32(SpellID);
     data << int32(SpellForVisuals);
     SpellVisual->WriteCreate(data, receiver, owner);
@@ -8401,7 +8414,7 @@ void AreaTriggerData::WriteUpdate(Mask const& changesMask, ByteBuffer& data, Pla
         }
         if (changesMask[6])
         {
-            OverrideFacingCurve->WriteUpdate(ignoreNestedChangesMask, data, receiver, owner);
+            OverrideShapeCurve->WriteUpdate(ignoreNestedChangesMask, data, receiver, owner);
         }
         if (changesMask[7])
         {
@@ -8429,7 +8442,7 @@ void AreaTriggerData::WriteUpdate(Mask const& changesMask, ByteBuffer& data, Pla
         }
         if (changesMask[13])
         {
-            data << uint32(TimeToTargetFacing);
+            data << uint32(TimeToTargetShape);
         }
         if (changesMask[14])
         {
@@ -8603,14 +8616,14 @@ void AreaTriggerData::ClearChangesMask()
     Base::ClearChangesMask(OverrideMoveCurveX);
     Base::ClearChangesMask(OverrideMoveCurveY);
     Base::ClearChangesMask(OverrideMoveCurveZ);
-    Base::ClearChangesMask(OverrideFacingCurve);
+    Base::ClearChangesMask(OverrideShapeCurve);
     Base::ClearChangesMask(Caster);
     Base::ClearChangesMask(Duration);
     Base::ClearChangesMask(TimeToTarget);
     Base::ClearChangesMask(TimeToTargetScale);
     Base::ClearChangesMask(TimeToTargetExtraScale);
     Base::ClearChangesMask(TimeToTargetPos);
-    Base::ClearChangesMask(TimeToTargetFacing);
+    Base::ClearChangesMask(TimeToTargetShape);
     Base::ClearChangesMask(SpellID);
     Base::ClearChangesMask(SpellForVisuals);
     Base::ClearChangesMask(SpellVisual);

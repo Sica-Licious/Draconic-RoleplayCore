@@ -509,6 +509,9 @@ void WorldSession::HandleMirrorImageDataRequest(WorldPackets::Spells::GetMirrorI
                 mirrorImageComponentedData.ItemDisplayID.push_back(outfit.outfitdisplays[slot]);
 
             SendPacket(mirrorImageComponentedData.Write());
+
+            if (getMirrorImageData.DisplayID == 0)
+                creature->RevealOutfitForViewer(_player);
             return;
         }
     }
@@ -527,12 +530,11 @@ void WorldSession::HandleMirrorImageDataRequest(WorldPackets::Spells::GetMirrorI
         mirrorImageComponentedData.UnitGUID = guid;
         if (ChrModelEntry const* chrModel = sDB2Manager.GetChrModel(creator->GetRace(), creator->GetGender()))
             mirrorImageComponentedData.ChrModelID = chrModel->ID;
+        mirrorImageComponentedData.DisplayScale = creator->GetDisplayScale();
         mirrorImageComponentedData.RaceID = creator->GetRace();
         mirrorImageComponentedData.Gender = creator->GetGender();
         mirrorImageComponentedData.ClassID = creator->GetClass();
-
-        for (UF::ChrCustomizationChoice const& customization : player->m_playerData->Customizations)
-            mirrorImageComponentedData.Customizations.push_back(customization);
+        mirrorImageComponentedData.Customizations.assign(player->m_playerData->Customizations.begin(), player->m_playerData->Customizations.end());
 
         Guild* guild = player->GetGuild();
         mirrorImageComponentedData.GuildGUID = (guild ? guild->GetGUID() : ObjectGuid::Empty);
