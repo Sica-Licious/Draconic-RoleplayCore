@@ -1919,6 +1919,46 @@ struct DifficultyLoadInfo
     static constexpr DB2LoadInfo Instance{ Fields, 15, &DifficultyMeta::Instance, HOTFIX_SEL_DIFFICULTY };
 };
 
+struct DriveCapabilityLoadInfo
+{
+    static constexpr DB2FieldMeta Fields[17] =
+    {
+        {.IsSigned = false, .Type = FT_INT, .Name = "ID" },
+        {.IsSigned = false, .Type = FT_FLOAT, .Name = "ForwardAcceleration" },
+        {.IsSigned = false, .Type = FT_FLOAT, .Name = "BackwardMaxSpeed" },
+        {.IsSigned = false, .Type = FT_FLOAT, .Name = "IdleFriction" },
+        {.IsSigned = false, .Type = FT_FLOAT, .Name = "BackwardAcceleration" },
+        {.IsSigned = false, .Type = FT_FLOAT, .Name = "Field_5" },
+        {.IsSigned = false, .Type = FT_FLOAT, .Name = "Field_6" },
+        {.IsSigned = false, .Type = FT_FLOAT, .Name = "Field_7" },
+        {.IsSigned = false, .Type = FT_FLOAT, .Name = "Field_8" },
+        {.IsSigned = false, .Type = FT_FLOAT, .Name = "Field_9" },
+        {.IsSigned = false, .Type = FT_FLOAT, .Name = "Field_10" },
+        {.IsSigned = false, .Type = FT_FLOAT, .Name = "Field_11" },
+        {.IsSigned = false, .Type = FT_FLOAT, .Name = "Field_12" },
+        {.IsSigned = false, .Type = FT_FLOAT, .Name = "Field_13" },
+        {.IsSigned = false, .Type = FT_FLOAT, .Name = "Field_14" },
+        {.IsSigned = false, .Type = FT_FLOAT, .Name = "Field_15" },
+        {.IsSigned = false, .Type = FT_FLOAT, .Name = "Field_16" },
+    };
+
+    static constexpr DB2LoadInfo Instance{ Fields, 17, &DriveCapabilityMeta::Instance, HOTFIX_SEL_DRIVE_CAPABILITY };
+};
+
+struct DriveCapabilityTierLoadInfo
+{
+    static constexpr DB2FieldMeta Fields[5] =
+    {
+        {.IsSigned = false, .Type = FT_INT, .Name = "ID" },
+        {.IsSigned = false, .Type = FT_FLOAT, .Name = "Acceleration" },
+        {.IsSigned = false, .Type = FT_FLOAT, .Name = "MaxSpeed" },
+        {.IsSigned = false, .Type = FT_INT, .Name = "DriveCapabilityID" },
+        {.IsSigned = true, .Type = FT_INT, .Name = "OrderIndex" },
+    };
+
+    static constexpr DB2LoadInfo Instance{ Fields, 5, &DriveCapabilityTierMeta::Instance, HOTFIX_SEL_DRIVE_CAPABILITY_TIER };
+};
+
 struct DungeonEncounterLoadInfo
 {
     static constexpr DB2FieldMeta Fields[11] =
@@ -5533,45 +5573,60 @@ struct ResearchBranchLoadInfo
 {
     static constexpr DB2FieldMeta Fields[7] =
     {
-        { false, FT_INT, "Id" },
-        { false, FT_STRING, "Name" },
-        { false, FT_BYTE, "ResearchFieldId" },
-        { false, FT_SHORT, "CurrencyId" },
-        { true, FT_INT, "TextureFileId" },
-        { true, FT_INT, "BigTextureFileId" },
-        { true, FT_INT, "ItemId" },
+        {.IsSigned = false, .Type = FT_INT, .Name = "ID" },
+        {.IsSigned = false, .Type = FT_STRING, .Name = "Name" },
+        {.IsSigned = false, .Type = FT_BYTE, .Name = "ResearchFieldID" },
+        {.IsSigned = false, .Type = FT_SHORT, .Name = "CurrencyID" },
+        {.IsSigned = true, .Type = FT_INT, .Name = "TextureFileID" },
+        {.IsSigned = true, .Type = FT_INT, .Name = "BigTextureFileID" },
+        {.IsSigned = true, .Type = FT_INT, .Name = "ItemID" },
     };
-    static constexpr DB2LoadInfo Instance{ Fields,7, &ResearchBranchMeta::Instance, HOTFIX_SEL_RESEARCH_BRANCH };
+
+    static constexpr DB2LoadInfo Instance{ Fields, 7, &ResearchBranchMeta::Instance, HOTFIX_SEL_RESEARCH_BRANCH };
+};
+
+struct ResearchFieldLoadInfo
+{
+    static constexpr DB2FieldMeta Fields[3] =
+    {
+        {.IsSigned = false, .Type = FT_INT, .Name = "ID" },
+        {.IsSigned = false, .Type = FT_STRING, .Name = "Name" },
+        {.IsSigned = false, .Type = FT_BYTE, .Name = "Slot" },
+    };
+
+    static constexpr DB2LoadInfo Instance{ Fields, 3, &ResearchFieldMeta::Instance, HOTFIX_SEL_RESEARCH_FIELD };
 };
 
 struct ResearchProjectLoadInfo
 {
     static constexpr DB2FieldMeta Fields[9] =
     {
-        { false, FT_INT, "Id" },
-        { false, FT_STRING, "Name" },
-        { false, FT_STRING, "Description" },
-        { false, FT_BYTE, "Rarity" },
-        { true, FT_INT, "SpellId" },
-        { false, FT_SHORT, "ResearchBranchId" },
-        { false, FT_BYTE, "NumSockets" },
-        { true, FT_INT, "TextureFileId" },
-        { false, FT_INT, "RequiredWeight" },
+        {.IsSigned = false, .Type = FT_INT, .Name = "ID" },
+        {.IsSigned = false, .Type = FT_STRING, .Name = "Name" },
+        {.IsSigned = false, .Type = FT_STRING, .Name = "Description" },
+        {.IsSigned = false, .Type = FT_BYTE, .Name = "Rarity" },
+        {.IsSigned = true, .Type = FT_INT, .Name = "SpellID" },
+        {.IsSigned = false, .Type = FT_SHORT, .Name = "ResearchBranchID" },
+        {.IsSigned = false, .Type = FT_BYTE, .Name = "NumSockets" },
+        {.IsSigned = true, .Type = FT_INT, .Name = "TextureFileID" },
+        {.IsSigned = false, .Type = FT_INT, .Name = "RequiredWeight" },
     };
-    static constexpr DB2LoadInfo Instance{ Fields,9, &ResearchProjectMeta::Instance, HOTFIX_SEL_RESEARCH_PROJECT };
+
+    static constexpr DB2LoadInfo Instance{ Fields, 9, &ResearchProjectMeta::Instance, HOTFIX_SEL_RESEARCH_PROJECT };
 };
 
 struct ResearchSiteLoadInfo
 {
     static constexpr DB2FieldMeta Fields[5] =
     {
-        { false, FT_INT, "Id" },
-        { false, FT_STRING, "Name" },
-        { true, FT_SHORT, "MapId" },
-        { true, FT_INT, "QuestPoiBlobId" },
-        { false, FT_INT, "AreaPOIIconEnum" },
+        {.IsSigned = false, .Type = FT_INT, .Name = "ID" },
+        {.IsSigned = false, .Type = FT_STRING, .Name = "Name" },
+        {.IsSigned = true, .Type = FT_SHORT, .Name = "MapID" },
+        {.IsSigned = true, .Type = FT_INT, .Name = "QuestPOIBlobID" },
+        {.IsSigned = false, .Type = FT_INT, .Name = "AreaPOIIconEnum" },
     };
-    static constexpr DB2LoadInfo Instance{ Fields,5, &ResearchSiteMeta::Instance, HOTFIX_SEL_RESEARCH_SITE };
+
+    static constexpr DB2LoadInfo Instance{ Fields, 5, &ResearchSiteMeta::Instance, HOTFIX_SEL_RESEARCH_SITE };
 };
 
 struct RewardPackLoadInfo

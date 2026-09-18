@@ -22,6 +22,7 @@
 #include "BattlegroundPackets.h"
 #include "CellImpl.h"
 #include "CharmInfo.h"
+#include "CombatPackets.h"
 #include "Common.h"
 #include "Containers.h"
 #include "DB2Stores.h"
@@ -2383,6 +2384,19 @@ void AuraEffect::HandleFeignDeath(AuraApplication const* aurApp, uint8 mode, boo
             if (isAffectedByFeignDeath(ref->GetOwner()))
                 ref->ScaleThreat(0.0f);
 
+        bool feignDeathResisted = false;
+        for (auto const& [guid, ref] : target->GetThreatManager().GetThreatenedByMeList())
+        {
+            if (isAffectedByFeignDeath(ref->GetOwner()))
+                ref->ScaleThreat(0.0f);
+            else
+                feignDeathResisted = true;
+        }
+
+        if (feignDeathResisted)
+            if (Player* targetPlayer = target->ToPlayer())
+                targetPlayer->SendDirectMessage(WorldPackets::Combat::FeignDeathResisted().Write());
+
         if (target->GetMap()->IsDungeon()) // feign death does not remove combat in dungeons
         {
             target->AttackStop();
@@ -2833,8 +2847,10 @@ void AuraEffect::HandleAuraMounted(AuraApplication const* aurApp, uint8 mode, bo
             if (MountCapabilityEntry const* mountCapability = sMountCapabilityStore.LookupEntry(GetAmountAsInt()))
             {
                 target->SetFlightCapabilityID(mountCapability->FlightCapabilityID, true);
+                target->SetDriveCapabilityID(mountCapability->DriveCapabilityID, false);
                 target->CastSpell(target, mountCapability->ModSpellAuraID, this);
             }
+
             // Private server: always enable flying for players with riding skills
             if (Player* player = target->ToPlayer())
             {
@@ -2883,8 +2899,14 @@ void AuraEffect::HandleAuraMounted(AuraApplication const* aurApp, uint8 mode, bo
         target->SetCanAdvFly(false);
         target->SetCanDoubleJump(false);
         target->SetFlightCapabilityID(0, true);
+        target->SetDriveCapabilityID(0, true);
         // Remove Vigor aura on dismount
         target->RemoveAura(372773);
+
+        // Dragonriding updates
+        if (target->GetTypeId() == TYPEID_PLAYER && (mode & AURA_EFFECT_HANDLE_REAL))
+            if (GetMiscValue() == 32158 && GetMiscValueB() == 229) // Dragon mounts
+                target->ToPlayer()->UpdateDynamicFlight(apply);
     }
 }
 
@@ -4059,31 +4081,20 @@ void AuraEffect::HandleModBonusArmorPercent(AuraApplication const* aurApp, uint8
     aurApp->GetTarget()->UpdateArmor();
 }
 
-void AuraEffect::HandleModStatBonusPercent(AuraApplication const* aurApp, uint8 mode, bool apply) const
+void AuraEffect::HandleModStatBonusPercent(AuraApplication const* aurApp, uint8 mode, bool /*apply*/) const
 {
     if (!(mode & (AURA_EFFECT_HANDLE_CHANGE_AMOUNT_MASK | AURA_EFFECT_HANDLE_STAT)))
         return;
 
     Unit* target = aurApp->GetTarget();
 
-    if (GetMiscValue() < -1 || GetMiscValue() > 4)
+    if (GetMiscValue() < 0 || GetMiscValue() >= MAX_STATS)
     {
         TC_LOG_ERROR("spells", "WARNING: Misc Value for SPELL_AURA_MOD_STAT_BONUS_PCT not valid");
         return;
     }
 
-    // only players have base stats
-    if (target->GetTypeId() != TYPEID_PLAYER)
-        return;
-
-    for (int32 i = STAT_STRENGTH; i < MAX_STATS; ++i)
-    {
-        if (GetMiscValue() == i || GetMiscValue() == -1)
-        {
-            target->HandleStatFlatModifier(UnitMods(UNIT_MOD_STAT_START + i), BASE_PCT_EXCLUDE_CREATE, float(GetAmount()), apply);
-            target->UpdateStatBuffMod(Stats(i));
-        }
-    }
+    target->UpdateStats(Stats(GetMiscValue()));
 }
 
 void AuraEffect::HandleOverrideSpellPowerByAttackPower(AuraApplication const* aurApp, uint8 mode, bool apply) const

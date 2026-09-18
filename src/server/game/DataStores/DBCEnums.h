@@ -196,11 +196,13 @@ enum class AreaTriggerShapeType : int8
 {
     Sphere                         = 0,
     Box                            = 1,
-    Unk                            = 2,
+    Quad2D                         = 2,
     Polygon                        = 3,
     Cylinder                       = 4,
-    Disk                           = 5,
-    BoundedPlane                   = 6,
+    Script                         = 5,
+    FromUnit                       = 6,
+    Disk                           = 7,
+    BoundedPlane                   = 8,
     Max
 };
 
@@ -546,11 +548,11 @@ enum class CriteriaType : int16
 {
     KillCreature                                   = 0,   // Kill NPC "{Creature}"
     WinBattleground                                = 1,   // Win battleground "{Map}"
-    CompleteResearchProject                        = 2,   /*NYI*/ // Complete research project "{ResearchProject}"
-    CompleteAnyResearchProject                     = 3,   /*NYI*/ // Complete any research project
-    FindResearchObject                             = 4,   /*NYI*/ // Find research object "{GameObjects}"
+    CompleteResearchProject                        = 2,   // Complete research project "{ResearchProject}"
+    CompleteAnyResearchProject                     = 3,   // Complete any research project
+    FindResearchObject                             = 4,   // Find research object "{GameObjects}"
     ReachLevel                                     = 5,   // Reach level
-    ExhaustAnyResearchSite                         = 6,   /*NYI*/ // Exhaust any research site
+    ExhaustAnyResearchSite                         = 6,   // Exhaust any research site
     SkillRaised                                    = 7,   // Skill "{SkillLine}" raised
     EarnAchievement                                = 8,   // Earn achievement "{Achievement}"
     CompleteQuestsCount                            = 9,   // Count of complete quests (quest count)
@@ -1272,11 +1274,14 @@ enum ItemBonusType
     ITEM_BONUS_OVERRIDE_CAN_DISENCHANT          = 21,
     ITEM_BONUS_OVERRIDE_CAN_SCRAP               = 22,
     ITEM_BONUS_ITEM_EFFECT_ID                   = 23,
+    ITEM_BONUS_OVERRIDE_CANT_UNEQUIP_IN_COMBAT  = 24, /*NYI*/
     ITEM_BONUS_MODIFIED_CRAFTING_STAT           = 25, /*NYI*/
     ITEM_BONUS_REQUIRED_LEVEL_CURVE             = 27,
     ITEM_BONUS_ICON_FILE_DATA_ID                = 28,
+    ITEM_BONUS_MAX_UPGRADE_SEQUENCE_VALUE       = 29, /*NYI*/
     ITEM_BONUS_DESCRIPTION_TEXT                 = 30,             // Item description
     ITEM_BONUS_OVERRIDE_NAME                    = 31,             // ItemNameDescription id
+    ITEM_BONUS_OVERRIDE_NO_CREATOR              = 32, /*NYI*/
     ITEM_BONUS_UPGRADE_SEQUENCE_VALUE           = 33, /*NYI*/
     ITEM_BONUS_ITEM_BONUS_LIST_GROUP            = 34, /*NYI*/
     ITEM_BONUS_ITEM_LIMIT_CATEGORY              = 35,
@@ -1284,6 +1289,7 @@ enum ItemBonusType
     ITEM_BONUS_ITEM_CONVERSION                  = 37, /*NYI*/
     ITEM_BONUS_ITEM_HISTORY_SLOT                = 38, /*NYI*/
     ITEM_BONUS_OVERRIDE_CAN_SALVAGE             = 39,
+    ITEM_BONUS_SALVAGE_LOOT_ID                  = 40, /*NYI*/
     ITEM_BONUS_OVERRIDE_CAN_RECRAFT             = 41,
     ITEM_BONUS_ITEM_LEVEL_BASE                  = 42,
     ITEM_BONUS_PVP_ITEM_LEVEL_BASE              = 43,
@@ -1295,6 +1301,8 @@ enum ItemBonusType
     ITEM_BONUS_SCALING_CONFIG_AND_REQ_LEVEL     = 49,
     ITEM_BONUS_ITEM_BONUS_LIST                  = 50,
     ITEM_BONUS_SCALING_CONFIG                   = 51,
+    ITEM_BONUS_CRAFTED_ITEM_LEVEL               = 52,
+    ITEM_BONUS_SCALING_ITEM_LEVEL_BONUS         = 53,             // Applied only when ItemScalingConfig is used
 };
 
 enum class ItemCollectionType : uint8

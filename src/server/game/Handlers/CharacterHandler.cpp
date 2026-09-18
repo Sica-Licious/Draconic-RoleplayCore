@@ -301,6 +301,18 @@ bool LoginQueryHolder::Initialize()
     stmt->setUInt64(0, lowGuid);
     res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOAD_SKILLS, stmt);
 
+    stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_RESEARCH_SITE);
+    stmt->setUInt64(0, lowGuid);
+    res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOAD_RESEARCH_SITES, stmt);
+
+    stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_RESEARCH_PROJECT);
+    stmt->setUInt64(0, lowGuid);
+    res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOAD_RESEARCH_PROJECTS, stmt);
+
+    stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_RESEARCH_HISTORY);
+    stmt->setUInt64(0, lowGuid);
+    res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOAD_RESEARCH_HISTORY, stmt);
+
     stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_RANDOMBG);
     stmt->setUInt64(0, lowGuid);
     res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOAD_RANDOM_BG, stmt);
@@ -1771,12 +1783,30 @@ void WorldSession::SendFeatureSystemStatus()
 
 void WorldSession::HandleSetFactionAtWar(WorldPackets::Character::SetFactionAtWar& packet)
 {
-    GetPlayer()->GetReputationMgr().SetAtWar(packet.FactionIndex, true);
+    ReputationMgr& reputationMgr = GetPlayer()->GetReputationMgr();
+    reputationMgr.SetAtWar(packet.FactionIndex, true);
+
+    if (FactionState const* factionState = reputationMgr.GetState(packet.FactionIndex))
+    {
+        WorldPackets::Character::SetFactionAtWarResult result;
+        result.FactionIndex = factionState->ReputationListID;
+        result.Flags = factionState->Flags.AsUnderlyingType();
+        SendPacket(result.Write());
+    }
 }
 
 void WorldSession::HandleSetFactionNotAtWar(WorldPackets::Character::SetFactionNotAtWar& packet)
 {
-    GetPlayer()->GetReputationMgr().SetAtWar(packet.FactionIndex, false);
+    ReputationMgr& reputationMgr = GetPlayer()->GetReputationMgr();
+    reputationMgr.SetAtWar(packet.FactionIndex, false);
+
+    if (FactionState const* factionState = reputationMgr.GetState(packet.FactionIndex))
+    {
+        WorldPackets::Character::SetFactionAtWarResult result;
+        result.FactionIndex = factionState->ReputationListID;
+        result.Flags = factionState->Flags.AsUnderlyingType();
+        SendPacket(result.Write());
+    }
 }
 
 void WorldSession::HandleTutorialFlag(WorldPackets::Misc::TutorialSetFlag& packet)
